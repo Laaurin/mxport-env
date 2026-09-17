@@ -1,0 +1,119 @@
+# ============================================================
+# Consumer STS – server-config.yml
+#
+# This STS sits on the Consumer side. It:
+#   - accepts Consumer tokens issued by Keycloak (realm: master)
+#   - issues Factory-X tokens (blue) that the Consumer Gateway
+#     can forward to the Provider Gateway
+#
+# IMPORTANT – Issuer URL matching:
+#   Keycloak sets the "iss" claim to the URL used to REQUEST the token.
+#   - Postman/curl from the host  →  iss = http://localhost:8080/realms/master
+#   - Requests from other containers → iss = http://keycloak:8080/realms/master
+#   Both entries are listed below so the STS accepts tokens from both contexts.
+# ============================================================
+serviceConfiguration:
+  # "iss" claim placed in every token this STS issues.
+  # Must be reachable by the Provider STS so it can fetch this STS's JWKS.
+  issuer: http://consumer-sts:9050/sts
+
+  chooseFilterManagerBySubjectToken: true
+  signingKeyAlias: consumer-sts-key
+  tokenExchangeFilterConfigurationYml: filter-config/filter-config.yml
+
+  plainkey:
+    keyLocation: signingkey/private_key.pem
+    keyId: consumer-sts-key
+
+  outgoingTokenScopeClaimName: scope
+  forceOverwriteIssuerWithConfiguredValue: true
+  forceOverwriteIatWithNow: true
+  forceNewJti: true
+
+# Trusted incoming token issuers
+#
+# Keycloak sets "iss" to the URL used to REQUEST the token.
+# → Host (Postman):  http://localhost:8080/realms/<realm>
+# → Container:       http://keycloak:8080/realms/<realm>
+# Both variants are listed for each realm.
+issuerSpecificConfiguration:
+
+  # ── realm: master ──────────────────────────────────────────────
+
+  # Entry 1a: Postman / curl on host
+  - issuer: http://localhost:8080/realms/master
+    jwksUri: "http://keycloak:8080/realms/master/protocol/openid-connect/certs"
+    connectionTimeoutInMs: 20000
+    readTimeoutInMs: 20000
+    tokenScopeClaimName: scope
+    propagateIssuerToValidators: true
+    disableSubjectTokenClaimsSetValidator: false
+    subjectTokenClaimsSetValidator:
+      issuerRequired: true
+      requiredScopes: []
+      expiryClaimRequired: true
+      expiryCheckDisabled: false
+      nbfClaimRequired: false
+      nbfCheckDisabled: false
+      iatClaimRequired: false
+      iatCheckDisabled: false
+    actorTokenRequired: false
+
+  # Entry 1b: other Docker containers
+  - issuer: http://keycloak:8080/realms/master
+    jwksUri: "http://keycloak:8080/realms/master/protocol/openid-connect/certs"
+    connectionTimeoutInMs: 20000
+    readTimeoutInMs: 20000
+    tokenScopeClaimName: scope
+    propagateIssuerToValidators: true
+    disableSubjectTokenClaimsSetValidator: false
+    subjectTokenClaimsSetValidator:
+      issuerRequired: true
+      requiredScopes: []
+      expiryClaimRequired: true
+      expiryCheckDisabled: false
+      nbfClaimRequired: false
+      nbfCheckDisabled: false
+      iatClaimRequired: false
+      iatCheckDisabled: false
+    actorTokenRequired: false
+
+  # ── realm: mxport ──────────────────────────────────────────────
+
+  # Entry 2a: Postman / curl on host  →  iss = http://localhost:8080/realms/mxport
+  - issuer: http://localhost:8080/realms/mxport
+    jwksUri: "http://keycloak:8080/realms/mxport/protocol/openid-connect/certs"
+    connectionTimeoutInMs: 20000
+    readTimeoutInMs: 20000
+    tokenScopeClaimName: scope
+    propagateIssuerToValidators: true
+    disableSubjectTokenClaimsSetValidator: false
+    subjectTokenClaimsSetValidator:
+      issuerRequired: true
+      requiredScopes: []
+      expiryClaimRequired: true
+      expiryCheckDisabled: false
+      nbfClaimRequired: false
+      nbfCheckDisabled: false
+      iatClaimRequired: false
+      iatCheckDisabled: false
+    actorTokenRequired: false
+
+  # Entry 2b: other Docker containers  →  iss = http://keycloak:8080/realms/mxport
+  - issuer: http://keycloak:8080/realms/mxport
+    jwksUri: "http://keycloak:8080/realms/mxport/protocol/openid-connect/certs"
+    connectionTimeoutInMs: 20000
+    readTimeoutInMs: 20000
+    tokenScopeClaimName: scope
+    propagateIssuerToValidators: true
+    disableSubjectTokenClaimsSetValidator: false
+    subjectTokenClaimsSetValidator:
+      issuerRequired: true
+      requiredScopes: []
+      expiryClaimRequired: true
+      expiryCheckDisabled: false
+      nbfClaimRequired: false
+      nbfCheckDisabled: false
+      iatClaimRequired: false
+      iatCheckDisabled: false
+    actorTokenRequired: false

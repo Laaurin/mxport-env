@@ -1,0 +1,31 @@
+#################################################################
+# Provider STS – filter-config.yml
+#
+# Defines how incoming Factory-X tokens (issued by the Consumer STS)
+# are transformed into outgoing Provider tokens for the AAS.
+#################################################################
+
+# ── Transform Factory-X tokens from Consumer STS ─────────────────
+# iss = http://consumer-sts:9050/sts (set by Consumer STS)
+
+!!com.siemens.iam.exchange.core.filter.ClaimsCopyFilter
+  issuer: http://consumer-sts:9050/sts
+  claimsMap:
+    sub: sub
+    scope: scope
+---
+!!com.siemens.iam.exchange.core.filter.SetExpiryFilter
+  issuer: http://consumer-sts:9050/sts
+  # Use "now" as reference; token valid for 300 seconds
+  referenceSubjectIat: false
+  expiry: 300
+---
+!!com.siemens.iam.exchange.core.filter.ClaimsAppenderFilter
+  issuer: http://consumer-sts:9050/sts
+  claimsMap:
+    environment: provider
+---
+!!com.siemens.iam.exchange.sample.filter.BasyxFilter
+  issuer: http://consumer-sts:9050/sts
+  targetAudience: provider-aas
+# Make sure to NOT put '---' after the last configuration entry.

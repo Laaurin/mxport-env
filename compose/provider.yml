@@ -1,0 +1,219 @@
+services:
+  # --------------------------------------------------------------------------
+  # BaSyx MongoDB (Backend for Security Submodel Server)
+  # --------------------------------------------------------------------------
+  basyx-mongo:
+    image: mongo:8
+    container_name: basyx-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongoAdmin
+      MONGO_INITDB_ROOT_PASSWORD: mongoPassword
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --username \"$$MONGO_INITDB_ROOT_USERNAME\" --password \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand({ ping: 1 })\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 10
+    ports:
+      - "27017:27017"
+    volumes:
+      - basyx-mongo-data:/data/db
+    networks:
+      provider-net:
+        aliases:
+          - mongo
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Provider RBAC Keycloak (Realm: BaSyx)
+  # --------------------------------------------------------------------------
+  keycloak-rbac:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: keycloak-rbac
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: ${RBAC_KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${RBAC_KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+    ports:
+      - "${RBAC_KEYCLOAK_PORT:-8085}:8080"
+    volumes:
+      - ../provider/basyx/realm:/opt/keycloak/data/import:ro
+    networks:
+      - provider-net
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000; printf 'GET /health/live HTTP/1.0\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; read s <&3; echo \"$$s\" | grep -q '200'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # BaSyx Security Submodel Server (Dynamic RBAC Policy Backend)
+  # --------------------------------------------------------------------------
+  security-submodel:
+    image: eclipsebasyx/submodel-repository:2.0.0-SNAPSHOT
+    container_name: security-submodel
+    depends_on:
+      basyx-mongo:
+        condition: service_healthy
+      keycloak-rbac:
+        condition: service_healthy
+    ports:
+      - "8086:8081"
+    volumes:
+      - ../provider/basyx/security-sm.properties:/application/application.properties:ro
+      - ../provider/basyx/rules/sec_sm_rbac_rules.json:/application/rbac_rules.json:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      provider-net:
+        aliases:
+          - security-submodel
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Security Submodel Initializer (Idempotent Curl Setup)
+  # --------------------------------------------------------------------------
+  security-sm-setup:
+    image: curlimages/curl:8.5.0
+    container_name: security-sm-setup
+    depends_on:
+      security-submodel:
+        condition: service_healthy
+      keycloak-rbac:
+        condition: service_healthy
+    volumes:
+      - ../provider/basyx/setup-entrypoint.sh:/setup.sh:ro
+      - ../provider/basyx/initial-submodel.json:/initial-submodel.json:ro
+    entrypoint: ["/bin/sh", "/setup.sh"]
+    networks:
+      - provider-net
+    restart: "no"
+
+  # --------------------------------------------------------------------------
+  # Provider STS – Security Token Service (Spring Boot)
+  # --------------------------------------------------------------------------
+  provider-sts:
+    image: mxport-leo-sts:local
+    container_name: provider-sts
+    depends_on:
+      consumer-sts:
+        condition: service_healthy
+    ports:
+      - "${PROVIDER_STS_PORT:-9051}:9050"
+    volumes:
+      - ../provider/sts/signingkey/private_key.pem:/app/signingkey/private_key.pem:ro
+      - ../provider/sts/server-config/server-config.yml:/app/server-config/server-config.yml:ro
+      - ../provider/sts/filter-config/filter-config.yml:/app/filter-config/filter-config.yml:ro
+      - ../provider/sts/trusted-list:/app/trusted-list:ro
+    environment:
+      SPRING_TOKEN_EXCHANGE_CONFIG_LOCATION: server-config/server-config.yml
+      SERVER_PORT: 9050
+      SERVER_CONTEXT_PATH: /sts
+      TRUSTED_LIST_ENABLE: ${PROVIDER_STS_TRUSTED_LIST_ENABLE:-false}
+      TRUSTED_LIST_LOCATION: trusted-list/signed_example_trusted_list.xml
+      TRUSTED_LIST_SCHEMA: trusted-list/19612_xsd.xsd
+      TRUSTED_LIST_PUBLIC_KEY: trusted-list/rsa_public.pem
+    networks:
+      - fx-net
+      - provider-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO/dev/null http://localhost:9050/sts/token 2>&1 | grep -qE '405|400|200|OK' || wget -S -O/dev/null http://localhost:9050/sts/token 2>&1 | grep -q 'HTTP/'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Provider AAS Environment (BaSyx with Dynamic Submodel RBAC)
+  # --------------------------------------------------------------------------
+  provider-aas:
+    image: eclipsebasyx/aas-environment:2.0.0-SNAPSHOT
+    container_name: provider-aas
+    depends_on:
+      security-submodel:
+        condition: service_healthy
+      security-sm-setup:
+        condition: service_completed_successfully
+      provider-sts:
+        condition: service_healthy
+    ports:
+      - "${PROVIDER_AAS_PORT:-8083}:8081"
+    volumes:
+      - ../provider/basyx/aas-env.properties:/application/application.properties:ro
+      - ../provider/basyx/rules/aas_env_rbac_rules.json:/application/rbac_rules.json:ro
+      - ../provider/basyx/aas:/application/aas:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      provider-net:
+        aliases:
+          - provider-aas
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Provider Gateway – OpenResty / Lua STS Module
+  # --------------------------------------------------------------------------
+  provider-gateway:
+    image: mxport-leo-gateway:local
+    container_name: provider-gateway
+    depends_on:
+      provider-sts:
+        condition: service_healthy
+      provider-aas:
+        condition: service_healthy
+    ports:
+      - "${PROVIDER_GATEWAY_PORT:-8082}:80"
+    volumes:
+      - ../provider/gateway/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      - ../provider/gateway/sts.lua:/usr/local/openresty/lualib/sts.lua:ro
+    networks:
+      - fx-net
+      - provider-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # BaSyx AAS Web UI (Vue.js frontend)
+  # --------------------------------------------------------------------------
+  aas-web-ui:
+    image: eclipsebasyx/aas-gui:SNAPSHOT
+    container_name: aas-web-ui
+    depends_on:
+      provider-aas:
+        condition: service_healthy
+    ports:
+      - "${AAS_WEB_UI_PORT:-3000}:3000"
+    environment:
+      AAS_REPO_PATH: http://localhost:8083/shells
+      SUBMODEL_REPO_PATH: http://localhost:8083/submodels
+      CD_REPO_PATH: http://localhost:8083/concept-descriptions
+      KEYCLOAK_ACTIVE: ${AAS_GUI_KEYCLOAK_ACTIVE:-false}
+      KEYCLOAK_URL: http://localhost:8085
+      KEYCLOAK_REALM: BaSyx
+      KEYCLOAK_CLIENT_ID: basyx-web-ui
+      ENDPOINT_CONFIG_AVAILABLE: "true"
+    networks:
+      - provider-net
+    restart: unless-stopped
+
+volumes:
+  basyx-mongo-data:

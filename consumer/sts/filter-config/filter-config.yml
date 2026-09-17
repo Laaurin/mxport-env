@@ -1,0 +1,90 @@
+#################################################################
+# Consumer STS – filter-config.yml
+#
+# Defines how incoming Consumer tokens (Keycloak realm: master)
+# are transformed into outgoing Factory-X tokens.
+#
+# Both issuer variants are configured (host access vs. container access).
+#################################################################
+
+# ── Tokens issued to HOST callers (Postman, curl on laptop) ─────
+# iss = http://localhost:8080/realms/master
+
+!!com.siemens.iam.exchange.core.filter.ClaimsCopyFilter
+  issuer: http://localhost:8080/realms/master
+  claimsMap:
+    sub: sub
+    scope: scope
+---
+!!com.siemens.iam.exchange.core.filter.SetExpiryFilter
+  issuer: http://localhost:8080/realms/master
+  # Use "now" as reference for iat/nbf/exp (referenceSubjectIat: false)
+  # Token is valid for 300 seconds (5 minutes)
+  referenceSubjectIat: false
+  expiry: 300
+---
+!!com.siemens.iam.exchange.core.filter.ClaimsAppenderFilter
+  issuer: http://localhost:8080/realms/master
+  claimsMap:
+    environment: consumer
+---
+
+# ── Tokens issued to CONTAINER callers (other Docker services) ───
+# iss = http://keycloak:8080/realms/master
+
+!!com.siemens.iam.exchange.core.filter.ClaimsCopyFilter
+  issuer: http://keycloak:8080/realms/master
+  claimsMap:
+    sub: sub
+    scope: scope
+---
+!!com.siemens.iam.exchange.core.filter.SetExpiryFilter
+  issuer: http://keycloak:8080/realms/master
+  referenceSubjectIat: false
+  expiry: 300
+---
+!!com.siemens.iam.exchange.core.filter.ClaimsAppenderFilter
+  issuer: http://keycloak:8080/realms/master
+  claimsMap:
+    environment: consumer
+---
+
+# ── realm: mxport – HOST callers (Postman) ──────────────────────
+# iss = http://localhost:8080/realms/mxport
+
+!!com.siemens.iam.exchange.core.filter.ClaimsCopyFilter
+  issuer: http://localhost:8080/realms/mxport
+  claimsMap:
+    sub: sub
+    scope: scope
+---
+!!com.siemens.iam.exchange.core.filter.SetExpiryFilter
+  issuer: http://localhost:8080/realms/mxport
+  referenceSubjectIat: false
+  expiry: 300
+---
+!!com.siemens.iam.exchange.core.filter.ClaimsAppenderFilter
+  issuer: http://localhost:8080/realms/mxport
+  claimsMap:
+    environment: consumer
+---
+
+# ── realm: mxport – CONTAINER callers ───────────────────────────
+# iss = http://keycloak:8080/realms/mxport
+
+!!com.siemens.iam.exchange.core.filter.ClaimsCopyFilter
+  issuer: http://keycloak:8080/realms/mxport
+  claimsMap:
+    sub: sub
+    scope: scope
+---
+!!com.siemens.iam.exchange.core.filter.SetExpiryFilter
+  issuer: http://keycloak:8080/realms/mxport
+  referenceSubjectIat: false
+  expiry: 300
+---
+!!com.siemens.iam.exchange.core.filter.ClaimsAppenderFilter
+  issuer: http://keycloak:8080/realms/mxport
+  claimsMap:
+    environment: consumer
+# Make sure to NOT put '---' after the last configuration entry.

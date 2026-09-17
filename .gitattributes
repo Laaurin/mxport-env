@@ -1,0 +1,25 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# Ensure shell scripts, config files, and docker-mounted scripts always keep LF
+*.sh text eol=lf
+*.bash text eol=lf
+*.lua text eol=lf
+*.conf text eol=lf
+*.properties text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# PowerShell scripts on Windows
+*.ps1 text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.aasx binary
+*.jar binary
+*.zip binary

@@ -1,0 +1,61 @@
+services:
+  # --------------------------------------------------------------------------
+  # Consumer STS – Security Token Service (Spring Boot)
+  # --------------------------------------------------------------------------
+  consumer-sts:
+    image: mxport-leo-sts:local
+    container_name: consumer-sts
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    ports:
+      - "${CONSUMER_STS_PORT:-9050}:9050"
+    volumes:
+      - ../consumer/sts/signingkey/private_key.pem:/app/signingkey/private_key.pem:ro
+      - ../consumer/sts/server-config/server-config.yml:/app/server-config/server-config.yml:ro
+      - ../consumer/sts/filter-config/filter-config.yml:/app/filter-config/filter-config.yml:ro
+      - ../consumer/sts/trusted-list:/app/trusted-list:ro
+    environment:
+      SPRING_TOKEN_EXCHANGE_CONFIG_LOCATION: server-config/server-config.yml
+      SERVER_PORT: 9050
+      SERVER_CONTEXT_PATH: /sts
+      TRUSTED_LIST_ENABLE: ${CONSUMER_STS_TRUSTED_LIST_ENABLE:-false}
+      TRUSTED_LIST_LOCATION: trusted-list/signed_example_trusted_list.xml
+      TRUSTED_LIST_SCHEMA: trusted-list/19612_xsd.xsd
+      TRUSTED_LIST_PUBLIC_KEY: trusted-list/rsa_public.pem
+    networks:
+      - consumer-net
+      - fx-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO/dev/null http://localhost:9050/sts/token 2>&1 | grep -qE '405|400|200|OK' || wget -S -O/dev/null http://localhost:9050/sts/token 2>&1 | grep -q 'HTTP/'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Consumer Gateway – OpenResty / Lua STS Module
+  # --------------------------------------------------------------------------
+  consumer-gateway:
+    build:
+      context: ../repos/mxport-leo-gateway/openresty-sts-module/docker
+    image: mxport-leo-gateway:local
+    container_name: consumer-gateway
+    depends_on:
+      consumer-sts:
+        condition: service_healthy
+    ports:
+      - "${CONSUMER_GATEWAY_PORT:-8081}:80"
+    volumes:
+      - ../consumer/gateway/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro
+      - ../consumer/gateway/sts.lua:/usr/local/openresty/lualib/sts.lua:ro
+    networks:
+      - consumer-net
+      - fx-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped

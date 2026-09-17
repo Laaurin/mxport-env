@@ -1,0 +1,29 @@
+# Local environment file – never commit secrets
+.env
+
+# Signing keys – MUST NOT be committed
+consumer/sts/signingkey/private_key.pem
+consumer/sts/signingkey/plainkey.pem
+consumer/sts/signingkey/keystore.jks
+provider/sts/signingkey/private_key.pem
+provider/sts/signingkey/plainkey.pem
+provider/sts/signingkey/keystore.jks
+
+# Docker build artifacts
+**/build/
+**/__pycache__/
+**/*.pyc
+
+# Sub-repositories (managed via ./setup.sh)
+repos/*
+!repos/.gitkeep
+
+# Archives & Temporary files
+*.zip
+*.tar.gz
+
+# OS / Editor artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

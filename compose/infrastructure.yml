@@ -1,0 +1,85 @@
+services:
+  # --------------------------------------------------------------------------
+  # Shared PostgreSQL Database (Company-Lookup Service)
+  # --------------------------------------------------------------------------
+  company-lookup-db:
+    image: postgres:16-alpine
+    container_name: company-lookup-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-company_lookup}
+      POSTGRES_USER: ${POSTGRES_USER:-lookup_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lookup_pass}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - company-lookup-db-data:/var/lib/postgresql/data
+    networks:
+      - consumer-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lookup_user} -d ${POSTGRES_DB:-company_lookup}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Company-Lookup Service (FastAPI)
+  # --------------------------------------------------------------------------
+  company-lookup:
+    build:
+      context: ../repos/mxport-leo-company-lookup
+    image: mxport-leo-company-lookup
+    container_name: company-lookup
+    depends_on:
+      company-lookup-db:
+        condition: service_healthy
+    ports:
+      - "${COMPANY_LOOKUP_PORT:-50102}:50102"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lookup_user}:${POSTGRES_PASSWORD:-lookup_pass}@company-lookup-db:5432/${POSTGRES_DB:-company_lookup}
+      APP_HOST: 0.0.0.0
+      APP_PORT: 50102
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      INIT_ADMIN_KEY: ${COMPANY_LOOKUP_ADMIN_KEY:-admin-secret-key}
+      API_KEYS: ${COMPANY_LOOKUP_ADMIN_KEY:-admin-secret-key}
+    command: sh -c "alembic upgrade head && python -m scripts.import_descriptors || true; company-lookup"
+    networks:
+      - consumer-net
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:50102/api/v2/openapi.json')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Consumer Keycloak (Identity Provider)
+  # --------------------------------------------------------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+    ports:
+      - "${KEYCLOAK_PORT:-8080}:8080"
+    volumes:
+      - ../consumer/keycloak/realm:/opt/keycloak/data/import:ro
+    networks:
+      - consumer-net
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000; printf 'GET /health/live HTTP/1.0\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; read s <&3; echo \"$$s\" | grep -q '200'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  company-lookup-db-data:

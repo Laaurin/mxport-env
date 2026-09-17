@@ -1,0 +1,18 @@
+# ==============================================================================
+# MXPort & BaSyx Dynamic RBAC Multi-Gateway Environment Orchestrator
+# ==============================================================================
+# Modular Compose Architecture using Compose v2 'include'
+# ==============================================================================
+
+include:
+  - path: compose/infrastructure.yml
+  - path: compose/consumer.yml
+  - path: compose/provider.yml
+
+networks:
+  consumer-net:
+    driver: bridge
+  fx-net:
+    driver: bridge
+  provider-net:
+    driver: bridge

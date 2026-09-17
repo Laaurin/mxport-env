@@ -1,0 +1,54 @@
+# ============================================================
+# Provider STS – server-config.yml
+#
+# This STS sits on the Provider side. It:
+#   - accepts Factory-X tokens issued by the Consumer STS
+#   - issues Provider tokens that the Provider Gateway
+#     can use to authenticate against the Provider AAS
+#
+# Adapt the following before going to production:
+#   - serviceConfiguration.issuer
+#   - issuerSpecificConfiguration[0].issuer
+#     (must match the Consumer STS "iss" claim, i.e.
+#      serviceConfiguration.issuer in consumer-sts's server-config.yml)
+#   - issuerSpecificConfiguration[0].jwksUri
+#     (JWKS endpoint of the Consumer STS; must be reachable from Provider)
+#   - plainkey.keyLocation (path to your signing key)
+# ============================================================
+serviceConfiguration:
+  # "iss" claim placed in every token this STS issues.
+  issuer: http://provider-sts:9050/sts
+
+  chooseFilterManagerBySubjectToken: true
+  signingKeyAlias: provider-sts-key
+  tokenExchangeFilterConfigurationYml: filter-config/filter-config.yml
+
+  plainkey:
+    keyLocation: signingkey/private_key.pem
+    keyId: provider-sts-key
+
+  outgoingTokenScopeClaimName: scope
+  forceOverwriteIssuerWithConfiguredValue: true
+  forceOverwriteIatWithNow: true
+  forceNewJti: true
+
+# Trusted incoming token issuers (= Consumer STS Factory-X tokens)
+issuerSpecificConfiguration:
+  - issuer: http://consumer-sts:9050/sts
+    # JWKS endpoint of the Consumer STS – must be reachable in the Docker network.
+    # In a cross-network/production scenario this would be the public JWKS URL.
+    jwksUri: "http://consumer-sts:9050/sts/jwks"
+    connectionTimeoutInMs: 20000
+    readTimeoutInMs: 20000
+    tokenScopeClaimName: scope
+    propagateIssuerToValidators: true
+    disableSubjectTokenClaimsSetValidator: false
+    subjectTokenClaimsSetValidator:
+      issuerRequired: true
+      expiryClaimRequired: true
+      expiryCheckDisabled: false
+      nbfClaimRequired: false
+      nbfCheckDisabled: false
+      iatClaimRequired: false
+      iatCheckDisabled: false
+    actorTokenRequired: false

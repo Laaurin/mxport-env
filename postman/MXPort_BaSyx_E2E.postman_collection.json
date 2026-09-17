@@ -1,0 +1,861 @@
+{
+  "info": {
+    "_postman_id": "a9b1c2d3-e4f5-4a6b-8c7d-9e0f1a2b3c4d",
+    "name": "MX-Port Leo & BaSyx Dynamic RBAC E2E Suite",
+    "description": "Comprehensive End-to-End Dataspace Token Exchange, Dynamic RBAC, and Company Lookup verification collection for MX-Port Leo and BaSyx.\nSupports execution with or without the companion environment file.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "keycloak_url",
+      "value": "http://localhost:8080/realms/mxport/protocol/openid-connect/token"
+    },
+    {
+      "key": "consumer_sts_url",
+      "value": "http://localhost:9050/sts/token"
+    },
+    {
+      "key": "consumer_gateway_url",
+      "value": "http://localhost:8081"
+    },
+    {
+      "key": "provider_gateway_url",
+      "value": "http://localhost:8082"
+    },
+    {
+      "key": "provider_sts_url",
+      "value": "http://localhost:9051/sts/token"
+    },
+    {
+      "key": "provider_aas_url",
+      "value": "http://localhost:8083"
+    },
+    {
+      "key": "keycloak_rbac_url",
+      "value": "http://localhost:8085/realms/BaSyx/protocol/openid-connect/token"
+    },
+    {
+      "key": "security_submodel_url",
+      "value": "http://localhost:8086/submodels"
+    },
+    {
+      "key": "security_submodel_id",
+      "value": "U2VjdXJpdHlTdWJtb2RlbA=="
+    },
+    {
+      "key": "frame_shell_id",
+      "value": "aHR0cHM6Ly9leGFtcGxlLmNvbS9pZHMvc20vNTI1NV81MTkxXzkwNDJfODEyNw=="
+    },
+    {
+      "key": "frame_rule_id",
+      "value": "YWRtaW5SRUFEb3JnLmVjbGlwc2UuZGlnaXRhbHR3aW4uYmFzeXguYWFzcmVwb3NpdG9yeS5mZWF0dXJlLmF1dGhvcml6YXRpb24uQWFzVGFyZ2V0SW5mb3JtYXRpb24="
+    },
+    {
+      "key": "role_name",
+      "value": "admin"
+    },
+    {
+      "key": "consumer_token",
+      "value": ""
+    },
+    {
+      "key": "fx_token",
+      "value": ""
+    },
+    {
+      "key": "provider_token",
+      "value": ""
+    },
+    {
+      "key": "provider_admin_token",
+      "value": ""
+    },
+    {
+      "key": "company_lookup_url",
+      "value": "http://localhost:50102/api/v2"
+    },
+    {
+      "key": "company_lookup_api_key",
+      "value": "admin-secret-key"
+    },
+    {
+      "key": "sample_company_name_b64",
+      "value": "RmFjdG9yeS1Y"
+    },
+    {
+      "key": "sample_company_domain_b64",
+      "value": "ZmFjdG9yeS14Lm9yZw"
+    },
+    {
+      "key": "demo_company_domain_b64",
+      "value": "cHJvdmlkZXIubXhwb3J0LmxvY2Fs"
+    },
+    {
+      "key": "aas_web_ui_url",
+      "value": "http://localhost:3000"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Company Lookup & Service Discovery",
+      "item": [
+        {
+          "name": "1.1 List All Seeded Companies",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Seeded companies returned\", function () {",
+                  "    pm.expect(jsonData.result).to.be.an(\"array\");",
+                  "    pm.expect(jsonData.result.length).to.be.above(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{company_lookup_url}}/companies?limit=10"
+          }
+        },
+        {
+          "name": "1.2 Search Company by Name (Factory-X)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Factory-X found by base64 name\", function () {",
+                  "    pm.expect(jsonData.result).to.be.an(\"array\");",
+                  "    pm.expect(jsonData.result.length).to.be.above(0);",
+                  "    pm.expect(jsonData.result[0].name).to.eql(\"Factory-X\");",
+                  "    pm.expect(jsonData.result[0].domain).to.eql(\"factory-x.org\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{company_lookup_url}}/companies?name={{sample_company_name_b64}}"
+          }
+        },
+        {
+          "name": "1.3 Get Company by Domain (Factory-X)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Factory-X details match\", function () {",
+                  "    pm.expect(jsonData.result.name).to.eql(\"Factory-X\");",
+                  "    pm.expect(jsonData.result.domain).to.eql(\"factory-x.org\");",
+                  "    pm.expect(jsonData.result.endpoints.length).to.be.above(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{company_lookup_url}}/companies/{{sample_company_domain_b64}}"
+          }
+        },
+        {
+          "name": "1.4 Register Demo Company Endpoint (Auth with API Key)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Demo company created (201 Created or 200 OK)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Company domain is provider.mxport.local\", function () {",
+                  "    pm.expect(jsonData.domain).to.eql(\"provider.mxport.local\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{company_lookup_api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Provider AAS Demo\",\n  \"domain\": \"provider.mxport.local\",\n  \"endpoints\": [\n    {\n      \"protocolInformation\": {\n        \"href\": \"{{provider_gateway_url}}\",\n        \"endpointProtocol\": \"HTTP\",\n        \"endpointProtocolVersion\": [\"1.1\"]\n      },\n      \"interface\": \"AAS-REPOSITORY-3.1\"\n    }\n  ]\n}"
+            },
+            "url": "{{company_lookup_url}}/companies"
+          }
+        },
+        {
+          "name": "1.5 Verify Registered Demo Company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.test(\"Registered demo company returned\", function () {",
+                  "    pm.expect(jsonData.result.domain).to.eql(\"provider.mxport.local\");",
+                  "    pm.expect(jsonData.result.endpoints[0].interface).to.eql(\"AAS-REPOSITORY-3.1\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{company_lookup_url}}/companies/{{demo_company_domain_b64}}"
+          }
+        },
+        {
+          "name": "1.6 Cleanup / Delete Demo Company (Auth with API Key)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Demo company deleted (204 No Content or 200 OK)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{company_lookup_api_key}}"
+              }
+            ],
+            "url": "{{company_lookup_url}}/companies/{{demo_company_domain_b64}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Consumer Identity & STS Token Exchange",
+      "item": [
+        {
+          "name": "2.1 Consumer IdP - Mint Consumer Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.expect(jsonData.access_token).to.not.be.empty;",
+                  "pm.collectionVariables.set(\"consumer_token\", jsonData.access_token);",
+                  "if (pm.environment) { pm.environment.set(\"consumer_token\", jsonData.access_token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "client_id",
+                  "value": "mxport-client",
+                  "type": "text"
+                },
+                {
+                  "key": "grant_type",
+                  "value": "password",
+                  "type": "text"
+                },
+                {
+                  "key": "username",
+                  "value": "testuser",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "testpass",
+                  "type": "text"
+                },
+                {
+                  "key": "scope",
+                  "value": "data-consumer",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{keycloak_url}}"
+          }
+        },
+        {
+          "name": "2.2 Negative Test - Consumer IdP Invalid Credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "client_id",
+                  "value": "mxport-client",
+                  "type": "text"
+                },
+                {
+                  "key": "grant_type",
+                  "value": "password",
+                  "type": "text"
+                },
+                {
+                  "key": "username",
+                  "value": "testuser",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "wrong-password",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{keycloak_url}}"
+          }
+        },
+        {
+          "name": "2.3 Consumer STS - Exchange to Factory-X Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.expect(jsonData.access_token).to.not.be.empty;",
+                  "pm.collectionVariables.set(\"fx_token\", jsonData.access_token);",
+                  "if (pm.environment) { pm.environment.set(\"fx_token\", jsonData.access_token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "urn:ietf:params:oauth:grant-type:token-exchange",
+                  "type": "text"
+                },
+                {
+                  "key": "subject_token_type",
+                  "value": "urn:ietf:params:oauth:token-type:jwt",
+                  "type": "text"
+                },
+                {
+                  "key": "subject_token",
+                  "value": "{{consumer_token}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{consumer_sts_url}}"
+          }
+        },
+        {
+          "name": "2.4 Negative Test - Consumer STS with Forged Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "urn:ietf:params:oauth:grant-type:token-exchange",
+                  "type": "text"
+                },
+                {
+                  "key": "subject_token_type",
+                  "value": "urn:ietf:params:oauth:token-type:jwt",
+                  "type": "text"
+                },
+                {
+                  "key": "subject_token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.forgedSignature",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{consumer_sts_url}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Provider STS Token Exchange & Security Validation",
+      "item": [
+        {
+          "name": "3.1 Provider STS - Exchange to Provider Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.expect(jsonData.access_token).to.not.be.empty;",
+                  "pm.collectionVariables.set(\"provider_token\", jsonData.access_token);",
+                  "if (pm.environment) { pm.environment.set(\"provider_token\", jsonData.access_token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "urn:ietf:params:oauth:grant-type:token-exchange",
+                  "type": "text"
+                },
+                {
+                  "key": "subject_token_type",
+                  "value": "urn:ietf:params:oauth:token-type:jwt",
+                  "type": "text"
+                },
+                {
+                  "key": "subject_token",
+                  "value": "{{fx_token}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{provider_sts_url}}"
+          }
+        },
+        {
+          "name": "3.2 Negative Test 3a - Direct Provider AAS Without Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{provider_aas_url}}/shells/{{frame_shell_id}}"
+          }
+        },
+        {
+          "name": "3.3 Negative Test 3a - Provider Gateway Without Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{provider_gateway_url}}/shells/{{frame_shell_id}}"
+          }
+        },
+        {
+          "name": "3.4 Negative Test 3b - Direct Provider AAS With Unexchanged Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 or 403\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{consumer_token}}"
+              }
+            ],
+            "url": "{{provider_aas_url}}/shells/{{frame_shell_id}}"
+          }
+        },
+        {
+          "name": "3.5 Negative Test 3b - Provider Gateway With Unexchanged Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 or 403\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{consumer_token}}"
+              }
+            ],
+            "url": "{{provider_gateway_url}}/shells/{{frame_shell_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Gateway Hop & Dynamic RBAC",
+      "item": [
+        {
+          "name": "4.1 Gateway End-to-End Hop Healthz",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{consumer_token}}"
+              }
+            ],
+            "url": "{{consumer_gateway_url}}/external/provider-gateway/healthz"
+          }
+        },
+        {
+          "name": "4.2 Dynamic RBAC - Phase 1: Call AAS via Gateway (Pre-Rule: 403 Forbidden)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403 Forbidden before rule creation\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{consumer_token}}"
+              }
+            ],
+            "url": "{{consumer_gateway_url}}/external/provider-gateway/shells/{{frame_shell_id}}"
+          }
+        },
+        {
+          "name": "4.3 Dynamic RBAC - Phase 2: Keycloak RBAC - Get Admin Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.expect(jsonData.access_token).to.not.be.empty;",
+                  "pm.collectionVariables.set(\"provider_admin_token\", jsonData.access_token);",
+                  "if (pm.environment) { pm.environment.set(\"provider_admin_token\", jsonData.access_token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Host",
+                "value": "keycloak-rbac:8080"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "client_id",
+                  "value": "workstation-1",
+                  "type": "text"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "nY0mjyECF60DGzNmQUjL81XurSl8etom",
+                  "type": "text"
+                },
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials",
+                  "type": "text"
+                },
+                {
+                  "key": "scope",
+                  "value": "openid",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{keycloak_rbac_url}}"
+          }
+        },
+        {
+          "name": "4.4 Dynamic RBAC - Phase 3: Security Submodel - Inject Dynamic Rule",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Rule created (201 Created or 409 Conflict)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{provider_admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"modelType\": \"SubmodelElementCollection\",\n  \"idShort\": \"{{frame_rule_id}}\",\n  \"value\": [\n    {\n      \"modelType\": \"Property\",\n      \"value\": \"{{role_name}}\",\n      \"idShort\": \"role\"\n    },\n    {\n      \"modelType\": \"SubmodelElementList\",\n      \"idShort\": \"action\",\n      \"orderRelevant\": true,\n      \"value\": [\n        {\n          \"modelType\": \"Property\",\n          \"value\": \"READ\"\n        }\n      ]\n    },\n    {\n      \"modelType\": \"SubmodelElementCollection\",\n      \"idShort\": \"targetInformation\",\n      \"value\": [\n        {\n          \"modelType\": \"SubmodelElementList\",\n          \"idShort\": \"aasIds\",\n          \"orderRelevant\": true,\n          \"value\": [\n            {\n              \"modelType\": \"Property\",\n              \"value\": \"https://example.com/ids/sm/5255_5191_9042_8127\"\n            }\n          ]\n        },\n        {\n          \"modelType\": \"Property\",\n          \"value\": \"aas\",\n          \"idShort\": \"@type\"\n        }\n      ]\n    }\n  ]\n}"
+            },
+            "url": "{{security_submodel_url}}/{{security_submodel_id}}/submodel-elements"
+          }
+        },
+        {
+          "name": "4.5 Dynamic RBAC - Phase 4: Call AAS via Gateway (Post-Rule: 200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK after rule creation\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.expect(jsonData.id).to.include(\"5255_5191_9042_8127\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{consumer_token}}"
+              }
+            ],
+            "url": "{{consumer_gateway_url}}/external/provider-gateway/shells/{{frame_shell_id}}"
+          }
+        },
+        {
+          "name": "4.6 Dynamic RBAC - Phase 5: Security Submodel - Revoke Rule",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Rule deleted (200 OK or 204 No Content)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{provider_admin_token}}"
+              }
+            ],
+            "url": "{{security_submodel_url}}/{{security_submodel_id}}/submodel-elements/{{frame_rule_id}}"
+          }
+        },
+        {
+          "name": "4.7 Dynamic RBAC - Phase 6: Call AAS via Gateway (Post-Revocation: 403 Forbidden)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code reverts to 403 Forbidden after revocation\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{consumer_token}}"
+              }
+            ],
+            "url": "{{consumer_gateway_url}}/external/provider-gateway/shells/{{frame_shell_id}}"
+          }
+        }
+      ]
+    }
+  ]
+}
