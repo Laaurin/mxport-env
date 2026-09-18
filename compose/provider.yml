@@ -94,7 +94,7 @@ services:
     volumes:
       - ../provider/basyx/setup-entrypoint.sh:/setup.sh:ro
       - ../provider/basyx/initial-submodel.json:/initial-submodel.json:ro
-    entrypoint: ["/bin/sh", "/setup.sh"]
+    entrypoint: ["/bin/sh", "-c", "tr -d '\\r' < /setup.sh | sh"]
     networks:
       - provider-net
     restart: "no"
