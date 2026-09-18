@@ -48,6 +48,9 @@ if (-not $openSslPath) {
 
 Write-Host "  ✔ git und openssl ($openSslPath) sind verfügbar." -ForegroundColor Green
 
+# Windows: lange Pfade in Git aktivieren (verhindert 'Filename too long' bei tiefen Java-Paketstrukturen)
+git config --global core.longpaths true 2>$null
+
 # 2. Verzeichnisse sicherstellen
 $null = New-Item -ItemType Directory -Force -Path $ReposDir
 $null = New-Item -ItemType Directory -Force -Path (Join-Path $ScriptDir "consumer\sts\signingkey")
@@ -62,10 +65,19 @@ function Clone-Repo {
     )
     $targetDir = Join-Path $ReposDir $RepoName
     if (Test-Path (Join-Path $targetDir ".git")) {
-        Write-Host "  ✔ [Bereits vorhanden] $RepoName" -ForegroundColor DarkGray
+        git -C $targetDir config core.longpaths true 2>$null
+        $nonGitItems = Get-ChildItem -Path $targetDir -Force | Where-Object { $_.Name -ne ".git" }
+        if (-not $nonGitItems) {
+            Write-Host "  ⚠️ [Unvollständiger Checkout erkannt] Repariere $RepoName..." -ForegroundColor Yellow
+            git -C $targetDir checkout -f $PinnedCommit
+            Write-Host "  ✔ [Erfolgreich repariert] $RepoName" -ForegroundColor Green
+        } else {
+            Write-Host "  ✔ [Bereits vorhanden] $RepoName" -ForegroundColor DarkGray
+        }
     } else {
         Write-Host "  ⬇ Klone $RepoName von $RepoUrl..." -ForegroundColor Yellow
-        git clone $RepoUrl $targetDir
+        git clone -c core.longpaths=true $RepoUrl $targetDir
+        git -C $targetDir config core.longpaths true 2>$null
         Write-Host "  📌 Setze $RepoName auf getesteten Stand ($($PinnedCommit.Substring(0,7)))..." -ForegroundColor Yellow
         git -C $targetDir checkout -q $PinnedCommit
         Write-Host "  ✔ [Erfolgreich geklont] $RepoName" -ForegroundColor Green

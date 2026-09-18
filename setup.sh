@@ -18,6 +18,9 @@ for cmd in git openssl; do
 done
 echo "  ✔ git und openssl sind verfügbar."
 
+# Windows-Support: lange Pfade in Git aktivieren (verhindert 'Filename too long' bei tiefen Java-Paketstrukturen)
+git config --global core.longpaths true 2>/dev/null || true
+
 # 2. Verzeichnisse sicherstellen
 mkdir -p "${REPOS_DIR}"
 mkdir -p "${SCRIPT_DIR}/consumer/sts/signingkey"
@@ -31,10 +34,19 @@ clone_repo() {
   local target_dir="${REPOS_DIR}/${repo_name}"
 
   if [ -d "${target_dir}/.git" ]; then
-    echo "  ✔ [Bereits vorhanden] ${repo_name}"
+    git -C "${target_dir}" config core.longpaths true 2>/dev/null || true
+    # Prüfen, ob nach vorherigem Checkout-Fehler nur der .git Ordner existiert
+    if [ -z "$(ls -A "${target_dir}" 2>/dev/null | grep -v '^\.git$')" ]; then
+      echo "  ⚠️ [Unvollständiger Checkout erkannt] Repariere ${repo_name}..."
+      git -C "${target_dir}" checkout -f "${pinned_commit}"
+      echo "  ✔ [Erfolgreich repariert] ${repo_name}"
+    else
+      echo "  ✔ [Bereits vorhanden] ${repo_name}"
+    fi
   else
     echo "  ⬇ Klone ${repo_name} von ${repo_url}..."
-    git clone "${repo_url}" "${target_dir}"
+    git clone -c core.longpaths=true "${repo_url}" "${target_dir}"
+    git -C "${target_dir}" config core.longpaths true 2>/dev/null || true
     echo "  📌 Setze ${repo_name} auf getesteten Stand (${pinned_commit:0:7})..."
     git -C "${target_dir}" checkout -q "${pinned_commit}"
     echo "  ✔ [Erfolgreich geklont] ${repo_name}"
