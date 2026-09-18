@@ -34,7 +34,7 @@ services:
       company-lookup-db:
         condition: service_healthy
     ports:
-      - "${COMPANY_LOOKUP_PORT:-50102}:50102"
+      - "${COMPANY_LOOKUP_PORT:-5102}:50102"
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lookup_user}:${POSTGRES_PASSWORD:-lookup_pass}@company-lookup-db:5432/${POSTGRES_DB:-company_lookup}
       APP_HOST: 0.0.0.0

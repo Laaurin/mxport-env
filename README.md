@@ -25,7 +25,7 @@ Das Gesamtszenario deckt den vollständigen Lebenszyklus von Service Discovery, 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │ 0. Service Discovery                                                                   │
-│ Client / Consumer Gateway ──[GET /companies?name=...]──▶ Company Lookup Service (50102)│
+│ Client / Consumer Gateway ──[GET /companies?name=...]──▶ Company Lookup Service (5102) │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -80,7 +80,7 @@ Alle 12 Microservices laufen isoliert in Docker-Containern und sind über Compos
 | `security-submodel`| **8086** | 8081 | HTTP | `provider-net` | BaSyx Submodel Repository für dynamische Zugriffspolicies |
 | `consumer-sts` | **9050** | 9050 | HTTP | `consumer-net` | Security Token Service für Consumer (RFC 8693) |
 | `provider-sts` | **9051** | 9050 | HTTP | `provider-net` | Security Token Service für Provider (RFC 8693) |
-| `company-lookup` | **50102** | 50102 | HTTP | `consumer-net` | AAS Discovery Service (FastAPI / OpenAPI v2) |
+| `company-lookup` | **5102** | 50102 | HTTP | `consumer-net` | AAS Discovery Service (FastAPI / OpenAPI v2) |
 | `company-lookup-db`| **5432** | 5432 | TCP | `consumer-net` | PostgreSQL 16 Datenbank für Company Lookup |
 | `basyx-mongo` | **27017** | 27017 | TCP | `provider-net` | MongoDB Backend für AAS & Submodel Speicherung |
 | `aas-web-ui` | **3000** | 3000 | HTTP | `provider-net` | BaSyx AAS Web GUI zur interaktiven Verwaltung |
@@ -126,9 +126,9 @@ Alle 12 Microservices laufen isoliert in Docker-Containern und sind über Compos
   - Private Signing Key: `provider/sts/signingkey/private_key.pem`
   - API Key: `provider-sts-key`
 
-### 4. Company Lookup Service (Port 50102)
-- **Basis-URL:** `http://localhost:50102/api/v2`
-- **OpenAPI Dokumentation:** [http://localhost:50102/api/v2/openapi.json](http://localhost:50102/api/v2/openapi.json)
+### 4. Company Lookup Service (Port 5102)
+- **Basis-URL:** `http://localhost:5102/api/v2`
+- **OpenAPI Dokumentation:** [http://localhost:5102/api/v2/openapi.json](http://localhost:5102/api/v2/openapi.json)
 - **Admin API Key:** `admin-secret-key` (Authorization: `Bearer admin-secret-key`)
 - **PostgreSQL Datenbank:**
   - Host: `company-lookup-db` (Port `5432`)

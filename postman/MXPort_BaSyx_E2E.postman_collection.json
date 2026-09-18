@@ -72,7 +72,7 @@
     },
     {
       "key": "company_lookup_url",
-      "value": "http://localhost:50102/api/v2"
+      "value": "http://localhost:5102/api/v2"
     },
     {
       "key": "company_lookup_api_key",
