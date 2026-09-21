@@ -859,7 +859,7 @@
     },
     {
       "name": "05 - Internal Provider Management (Direct without Gateway)",
-      "description": "Demonstrates internal intranet administrative access and direct AAS queries without passing through Consumer Gateway or Provider Gateway.\nShows the Dynamic RBAC lifecycle (Keycloak RBAC 8085 -> Security Submodel 8086 -> Provider AAS 8083).",
+      "description": "Demonstrates internal intranet administrative access and direct AAS queries without passing through Consumer Gateway or Provider Gateway.\nShows the Dynamic RBAC lifecycle (Keycloak RBAC 8085 -> Security Submodel 8086 -> Provider AAS 8083) completely self-contained.",
       "item": [
         {
           "name": "5.1 Keycloak RBAC - Get Provider Admin Token (M2M)",
@@ -921,7 +921,7 @@
           }
         },
         {
-          "name": "5.2 Security Submodel - Direct Policy Inspection (No Gateway)",
+          "name": "5.2 Token Prep - Consumer IdP (Mint Consumer Token)",
           "event": [
             {
               "listen": "test",
@@ -931,7 +931,167 @@
                   "    pm.response.to.have.status(200);",
                   "});",
                   "var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.id).to.eql(\"SecuritySubmodel\");"
+                  "pm.expect(jsonData.access_token).to.not.be.empty;",
+                  "pm.collectionVariables.set(\"consumer_token\", jsonData.access_token);",
+                  "if (pm.environment) { pm.environment.set(\"consumer_token\", jsonData.access_token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "client_id",
+                  "value": "mxport-client",
+                  "type": "text"
+                },
+                {
+                  "key": "grant_type",
+                  "value": "password",
+                  "type": "text"
+                },
+                {
+                  "key": "username",
+                  "value": "testuser",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "testpass",
+                  "type": "text"
+                },
+                {
+                  "key": "scope",
+                  "value": "data-consumer",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{keycloak_url}}"
+          }
+        },
+        {
+          "name": "5.3 Token Prep - Consumer STS (Exchange to Factory-X Token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.expect(jsonData.access_token).to.not.be.empty;",
+                  "pm.collectionVariables.set(\"fx_token\", jsonData.access_token);",
+                  "if (pm.environment) { pm.environment.set(\"fx_token\", jsonData.access_token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "urn:ietf:params:oauth:grant-type:token-exchange",
+                  "type": "text"
+                },
+                {
+                  "key": "subject_token_type",
+                  "value": "urn:ietf:params:oauth:token-type:jwt",
+                  "type": "text"
+                },
+                {
+                  "key": "subject_token",
+                  "value": "{{consumer_token}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{consumer_sts_url}}"
+          }
+        },
+        {
+          "name": "5.4 Token Prep - Provider STS (Exchange to Provider Token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.expect(jsonData.access_token).to.not.be.empty;",
+                  "pm.collectionVariables.set(\"provider_token\", jsonData.access_token);",
+                  "if (pm.environment) { pm.environment.set(\"provider_token\", jsonData.access_token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "urn:ietf:params:oauth:grant-type:token-exchange",
+                  "type": "text"
+                },
+                {
+                  "key": "subject_token_type",
+                  "value": "urn:ietf:params:oauth:token-type:jwt",
+                  "type": "text"
+                },
+                {
+                  "key": "subject_token",
+                  "value": "{{fx_token}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{provider_sts_url}}"
+          }
+        },
+        {
+          "name": "5.5 Security Submodel - Direct Policy Inspection (No Gateway)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.expect(jsonData.id).to.eql(\"SecuritySubmodel\");"
                 ],
                 "type": "text/javascript"
               }
@@ -949,7 +1109,59 @@
           }
         },
         {
-          "name": "5.3 Security Submodel - Inject Dynamic Rule for FrameAAS (No Gateway)",
+          "name": "5.6 Security Submodel - Ensure Clean State (Delete Dynamic Rule if present)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Rule deleted or not present (200, 204, or 404)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 204, 404]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{provider_admin_token}}"
+              }
+            ],
+            "url": "{{security_submodel_url}}/{{security_submodel_id}}/submodel-elements/{{frame_rule_id}}"
+          }
+        },
+        {
+          "name": "5.7 Direct Provider AAS - Pre-Rule Check (Direct Intranet: 403 Forbidden)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403 Forbidden before rule injection\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{provider_token}}"
+              }
+            ],
+            "url": "{{provider_aas_url}}/shells/{{frame_shell_id}}"
+          }
+        },
+        {
+          "name": "5.8 Security Submodel - Inject Dynamic Rule for FrameAAS (No Gateway)",
           "event": [
             {
               "listen": "test",
@@ -983,7 +1195,7 @@
           }
         },
         {
-          "name": "5.4 Direct Provider AAS - Read FrameAAS (Direct Intranet: 200 OK)",
+          "name": "5.9 Direct Provider AAS - Read FrameAAS (Direct Intranet: 200 OK)",
           "event": [
             {
               "listen": "test",
@@ -996,101 +1208,6 @@
                   "pm.expect(jsonData.id).to.include(\"5255_5191_9042_8127\");"
                 ],
                 "type": "text/javascript"
-              }
-            },
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "function parseJwt(token) {",
-                  "    try {",
-                  "        var base64Url = token.split(\".\")[1];",
-                  "        var base64 = base64Url.replace(/-/g, \"+\").replace(/_/g, \"/\");",
-                  "        var jsonPayload = decodeURIComponent(atob(base64).split(\"\").map(function(c) {",
-                  "            return \"%\" + (\"00\" + c.charCodeAt(0).toString(16)).slice(-2);",
-                  "        }).join(\"\"));",
-                  "        return JSON.parse(jsonPayload);",
-                  "    } catch (e) {",
-                  "        return null;",
-                  "    }",
-                  "}",
-                  "",
-                  "var pToken = pm.environment.get(\"provider_token\") || pm.collectionVariables.get(\"provider_token\");",
-                  "var isExpired = true;",
-                  "if (pToken) {",
-                  "    var decoded = parseJwt(pToken);",
-                  "    if (decoded && decoded.exp && (decoded.exp * 1000 > Date.now() + 10000)) {",
-                  "        isExpired = false;",
-                  "    }",
-                  "}",
-                  "",
-                  "if (!pToken || isExpired) {",
-                  "    // Mint consumer token -> fx token -> provider token",
-                  "    var kcUrl = pm.environment.get(\"keycloak_url\") || pm.collectionVariables.get(\"keycloak_url\") || \"http://localhost:8080/realms/mxport/protocol/openid-connect/token\";",
-                  "    var cStsUrl = pm.environment.get(\"consumer_sts_url\") || pm.collectionVariables.get(\"consumer_sts_url\") || \"http://localhost:9050/sts/token\";",
-                  "    var pStsUrl = pm.environment.get(\"provider_sts_url\") || pm.collectionVariables.get(\"provider_sts_url\") || \"http://localhost:9051/sts/token\";",
-                  "",
-                  "    pm.sendRequest({",
-                  "        url: kcUrl,",
-                  "        method: \"POST\",",
-                  "        header: { \"Content-Type\": \"application/x-www-form-urlencoded\" },",
-                  "        body: {",
-                  "            mode: \"urlencoded\",",
-                  "            urlencoded: [",
-                  "                { key: \"client_id\", value: \"mxport-client\" },",
-                  "                { key: \"grant_type\", value: \"password\" },",
-                  "                { key: \"username\", value: \"testuser\" },",
-                  "                { key: \"password\", value: \"testpass\" },",
-                  "                { key: \"scope\", value: \"data-consumer\" }",
-                  "            ]",
-                  "        }",
-                  "    }, function(err, res) {",
-                  "        if (err || res.code !== 200) { return; }",
-                  "        var cToken = res.json().access_token;",
-                  "        pm.collectionVariables.set(\"consumer_token\", cToken);",
-                  "        if (pm.environment) pm.environment.set(\"consumer_token\", cToken);",
-                  "",
-                  "        pm.sendRequest({",
-                  "            url: cStsUrl,",
-                  "            method: \"POST\",",
-                  "            header: { \"Content-Type\": \"application/x-www-form-urlencoded\" },",
-                  "            body: {",
-                  "                mode: \"urlencoded\",",
-                  "                urlencoded: [",
-                  "                    { key: \"grant_type\", value: \"urn:ietf:params:oauth:grant-type:token-exchange\" },",
-                  "                    { key: \"subject_token_type\", value: \"urn:ietf:params:oauth:token-type:jwt\" },",
-                  "                    { key: \"subject_token\", value: cToken }",
-                  "                ]",
-                  "            }",
-                  "        }, function(err2, res2) {",
-                  "            if (err2 || res2.code !== 200) { return; }",
-                  "            var fxToken = res2.json().access_token;",
-                  "            pm.collectionVariables.set(\"fx_token\", fxToken);",
-                  "            if (pm.environment) pm.environment.set(\"fx_token\", fxToken);",
-                  "",
-                  "            pm.sendRequest({",
-                  "                url: pStsUrl,",
-                  "                method: \"POST\",",
-                  "                header: { \"Content-Type\": \"application/x-www-form-urlencoded\" },",
-                  "                body: {",
-                  "                    mode: \"urlencoded\",",
-                  "                    urlencoded: [",
-                  "                        { key: \"grant_type\", value: \"urn:ietf:params:oauth:grant-type:token-exchange\" },",
-                  "                        { key: \"subject_token_type\", value: \"urn:ietf:params:oauth:token-type:jwt\" },",
-                  "                        { key: \"subject_token\", value: fxToken }",
-                  "                    ]",
-                  "                }",
-                  "            }, function(err3, res3) {",
-                  "                if (err3 || res3.code !== 200) { return; }",
-                  "                var newToken = res3.json().access_token;",
-                  "                pm.collectionVariables.set(\"provider_token\", newToken);",
-                  "                if (pm.environment) pm.environment.set(\"provider_token\", newToken);",
-                  "            });",
-                  "        });",
-                  "    });",
-                  "}"
-                ]
               }
             }
           ],
@@ -1106,7 +1223,7 @@
           }
         },
         {
-          "name": "5.5 Direct Provider AAS - List Shells (Direct Intranet: 200 OK)",
+          "name": "5.10 Direct Provider AAS - List Shells (Direct Intranet: 200 OK)",
           "event": [
             {
               "listen": "test",
@@ -1119,101 +1236,6 @@
                   "pm.expect(jsonData.result).to.be.an(\"array\");"
                 ],
                 "type": "text/javascript"
-              }
-            },
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "function parseJwt(token) {",
-                  "    try {",
-                  "        var base64Url = token.split(\".\")[1];",
-                  "        var base64 = base64Url.replace(/-/g, \"+\").replace(/_/g, \"/\");",
-                  "        var jsonPayload = decodeURIComponent(atob(base64).split(\"\").map(function(c) {",
-                  "            return \"%\" + (\"00\" + c.charCodeAt(0).toString(16)).slice(-2);",
-                  "        }).join(\"\"));",
-                  "        return JSON.parse(jsonPayload);",
-                  "    } catch (e) {",
-                  "        return null;",
-                  "    }",
-                  "}",
-                  "",
-                  "var pToken = pm.environment.get(\"provider_token\") || pm.collectionVariables.get(\"provider_token\");",
-                  "var isExpired = true;",
-                  "if (pToken) {",
-                  "    var decoded = parseJwt(pToken);",
-                  "    if (decoded && decoded.exp && (decoded.exp * 1000 > Date.now() + 10000)) {",
-                  "        isExpired = false;",
-                  "    }",
-                  "}",
-                  "",
-                  "if (!pToken || isExpired) {",
-                  "    // Mint consumer token -> fx token -> provider token",
-                  "    var kcUrl = pm.environment.get(\"keycloak_url\") || pm.collectionVariables.get(\"keycloak_url\") || \"http://localhost:8080/realms/mxport/protocol/openid-connect/token\";",
-                  "    var cStsUrl = pm.environment.get(\"consumer_sts_url\") || pm.collectionVariables.get(\"consumer_sts_url\") || \"http://localhost:9050/sts/token\";",
-                  "    var pStsUrl = pm.environment.get(\"provider_sts_url\") || pm.collectionVariables.get(\"provider_sts_url\") || \"http://localhost:9051/sts/token\";",
-                  "",
-                  "    pm.sendRequest({",
-                  "        url: kcUrl,",
-                  "        method: \"POST\",",
-                  "        header: { \"Content-Type\": \"application/x-www-form-urlencoded\" },",
-                  "        body: {",
-                  "            mode: \"urlencoded\",",
-                  "            urlencoded: [",
-                  "                { key: \"client_id\", value: \"mxport-client\" },",
-                  "                { key: \"grant_type\", value: \"password\" },",
-                  "                { key: \"username\", value: \"testuser\" },",
-                  "                { key: \"password\", value: \"testpass\" },",
-                  "                { key: \"scope\", value: \"data-consumer\" }",
-                  "            ]",
-                  "        }",
-                  "    }, function(err, res) {",
-                  "        if (err || res.code !== 200) { return; }",
-                  "        var cToken = res.json().access_token;",
-                  "        pm.collectionVariables.set(\"consumer_token\", cToken);",
-                  "        if (pm.environment) pm.environment.set(\"consumer_token\", cToken);",
-                  "",
-                  "        pm.sendRequest({",
-                  "            url: cStsUrl,",
-                  "            method: \"POST\",",
-                  "            header: { \"Content-Type\": \"application/x-www-form-urlencoded\" },",
-                  "            body: {",
-                  "                mode: \"urlencoded\",",
-                  "                urlencoded: [",
-                  "                    { key: \"grant_type\", value: \"urn:ietf:params:oauth:grant-type:token-exchange\" },",
-                  "                    { key: \"subject_token_type\", value: \"urn:ietf:params:oauth:token-type:jwt\" },",
-                  "                    { key: \"subject_token\", value: cToken }",
-                  "                ]",
-                  "            }",
-                  "        }, function(err2, res2) {",
-                  "            if (err2 || res2.code !== 200) { return; }",
-                  "            var fxToken = res2.json().access_token;",
-                  "            pm.collectionVariables.set(\"fx_token\", fxToken);",
-                  "            if (pm.environment) pm.environment.set(\"fx_token\", fxToken);",
-                  "",
-                  "            pm.sendRequest({",
-                  "                url: pStsUrl,",
-                  "                method: \"POST\",",
-                  "                header: { \"Content-Type\": \"application/x-www-form-urlencoded\" },",
-                  "                body: {",
-                  "                    mode: \"urlencoded\",",
-                  "                    urlencoded: [",
-                  "                        { key: \"grant_type\", value: \"urn:ietf:params:oauth:grant-type:token-exchange\" },",
-                  "                        { key: \"subject_token_type\", value: \"urn:ietf:params:oauth:token-type:jwt\" },",
-                  "                        { key: \"subject_token\", value: fxToken }",
-                  "                    ]",
-                  "                }",
-                  "            }, function(err3, res3) {",
-                  "                if (err3 || res3.code !== 200) { return; }",
-                  "                var newToken = res3.json().access_token;",
-                  "                pm.collectionVariables.set(\"provider_token\", newToken);",
-                  "                if (pm.environment) pm.environment.set(\"provider_token\", newToken);",
-                  "            });",
-                  "        });",
-                  "    });",
-                  "}"
-                ]
               }
             }
           ],
@@ -1229,7 +1251,7 @@
           }
         },
         {
-          "name": "5.6 Security Submodel - Revoke Dynamic Rule (No Gateway)",
+          "name": "5.11 Security Submodel - Revoke Dynamic Rule (No Gateway)",
           "event": [
             {
               "listen": "test",
@@ -1255,7 +1277,7 @@
           }
         },
         {
-          "name": "5.7 Direct Provider AAS - Read FrameAAS Post-Revocation (Direct Intranet: 403 Forbidden)",
+          "name": "5.12 Direct Provider AAS - Read FrameAAS Post-Revocation (Direct Intranet: 403 Forbidden)",
           "event": [
             {
               "listen": "test",
@@ -1266,101 +1288,6 @@
                   "});"
                 ],
                 "type": "text/javascript"
-              }
-            },
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "function parseJwt(token) {",
-                  "    try {",
-                  "        var base64Url = token.split(\".\")[1];",
-                  "        var base64 = base64Url.replace(/-/g, \"+\").replace(/_/g, \"/\");",
-                  "        var jsonPayload = decodeURIComponent(atob(base64).split(\"\").map(function(c) {",
-                  "            return \"%\" + (\"00\" + c.charCodeAt(0).toString(16)).slice(-2);",
-                  "        }).join(\"\"));",
-                  "        return JSON.parse(jsonPayload);",
-                  "    } catch (e) {",
-                  "        return null;",
-                  "    }",
-                  "}",
-                  "",
-                  "var pToken = pm.environment.get(\"provider_token\") || pm.collectionVariables.get(\"provider_token\");",
-                  "var isExpired = true;",
-                  "if (pToken) {",
-                  "    var decoded = parseJwt(pToken);",
-                  "    if (decoded && decoded.exp && (decoded.exp * 1000 > Date.now() + 10000)) {",
-                  "        isExpired = false;",
-                  "    }",
-                  "}",
-                  "",
-                  "if (!pToken || isExpired) {",
-                  "    // Mint consumer token -> fx token -> provider token",
-                  "    var kcUrl = pm.environment.get(\"keycloak_url\") || pm.collectionVariables.get(\"keycloak_url\") || \"http://localhost:8080/realms/mxport/protocol/openid-connect/token\";",
-                  "    var cStsUrl = pm.environment.get(\"consumer_sts_url\") || pm.collectionVariables.get(\"consumer_sts_url\") || \"http://localhost:9050/sts/token\";",
-                  "    var pStsUrl = pm.environment.get(\"provider_sts_url\") || pm.collectionVariables.get(\"provider_sts_url\") || \"http://localhost:9051/sts/token\";",
-                  "",
-                  "    pm.sendRequest({",
-                  "        url: kcUrl,",
-                  "        method: \"POST\",",
-                  "        header: { \"Content-Type\": \"application/x-www-form-urlencoded\" },",
-                  "        body: {",
-                  "            mode: \"urlencoded\",",
-                  "            urlencoded: [",
-                  "                { key: \"client_id\", value: \"mxport-client\" },",
-                  "                { key: \"grant_type\", value: \"password\" },",
-                  "                { key: \"username\", value: \"testuser\" },",
-                  "                { key: \"password\", value: \"testpass\" },",
-                  "                { key: \"scope\", value: \"data-consumer\" }",
-                  "            ]",
-                  "        }",
-                  "    }, function(err, res) {",
-                  "        if (err || res.code !== 200) { return; }",
-                  "        var cToken = res.json().access_token;",
-                  "        pm.collectionVariables.set(\"consumer_token\", cToken);",
-                  "        if (pm.environment) pm.environment.set(\"consumer_token\", cToken);",
-                  "",
-                  "        pm.sendRequest({",
-                  "            url: cStsUrl,",
-                  "            method: \"POST\",",
-                  "            header: { \"Content-Type\": \"application/x-www-form-urlencoded\" },",
-                  "            body: {",
-                  "                mode: \"urlencoded\",",
-                  "                urlencoded: [",
-                  "                    { key: \"grant_type\", value: \"urn:ietf:params:oauth:grant-type:token-exchange\" },",
-                  "                    { key: \"subject_token_type\", value: \"urn:ietf:params:oauth:token-type:jwt\" },",
-                  "                    { key: \"subject_token\", value: cToken }",
-                  "                ]",
-                  "            }",
-                  "        }, function(err2, res2) {",
-                  "            if (err2 || res2.code !== 200) { return; }",
-                  "            var fxToken = res2.json().access_token;",
-                  "            pm.collectionVariables.set(\"fx_token\", fxToken);",
-                  "            if (pm.environment) pm.environment.set(\"fx_token\", fxToken);",
-                  "",
-                  "            pm.sendRequest({",
-                  "                url: pStsUrl,",
-                  "                method: \"POST\",",
-                  "                header: { \"Content-Type\": \"application/x-www-form-urlencoded\" },",
-                  "                body: {",
-                  "                    mode: \"urlencoded\",",
-                  "                    urlencoded: [",
-                  "                        { key: \"grant_type\", value: \"urn:ietf:params:oauth:grant-type:token-exchange\" },",
-                  "                        { key: \"subject_token_type\", value: \"urn:ietf:params:oauth:token-type:jwt\" },",
-                  "                        { key: \"subject_token\", value: fxToken }",
-                  "                    ]",
-                  "                }",
-                  "            }, function(err3, res3) {",
-                  "                if (err3 || res3.code !== 200) { return; }",
-                  "                var newToken = res3.json().access_token;",
-                  "                pm.collectionVariables.set(\"provider_token\", newToken);",
-                  "                if (pm.environment) pm.environment.set(\"provider_token\", newToken);",
-                  "            });",
-                  "        });",
-                  "    });",
-                  "}"
-                ]
               }
             }
           ],
