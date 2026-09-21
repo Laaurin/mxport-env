@@ -856,6 +856,241 @@
           }
         }
       ]
+    },
+    {
+      "name": "05 - Internal Provider Management (Direct without Gateway)",
+      "description": "Demonstrates internal intranet administrative access and direct AAS queries without passing through Consumer Gateway or Provider Gateway.\nShows the Dynamic RBAC lifecycle (Keycloak RBAC 8085 -> Security Submodel 8086 -> Provider AAS 8083).",
+      "item": [
+        {
+          "name": "5.1 Keycloak RBAC - Get Provider Admin Token (M2M)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.expect(jsonData.access_token).to.not.be.empty;",
+                  "pm.collectionVariables.set(\"provider_admin_token\", jsonData.access_token);",
+                  "if (pm.environment) { pm.environment.set(\"provider_admin_token\", jsonData.access_token); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Host",
+                "value": "keycloak-rbac:8080"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "client_id",
+                  "value": "workstation-1",
+                  "type": "text"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "nY0mjyECF60DGzNmQUjL81XurSl8etom",
+                  "type": "text"
+                },
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials",
+                  "type": "text"
+                },
+                {
+                  "key": "scope",
+                  "value": "openid",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": "{{keycloak_rbac_url}}"
+          }
+        },
+        {
+          "name": "5.2 Security Submodel - Direct Policy Inspection (No Gateway)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.expect(jsonData.idShort).to.eql(\"SecuritySubmodel\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{provider_admin_token}}"
+              }
+            ],
+            "url": "{{security_submodel_url}}/{{security_submodel_id}}"
+          }
+        },
+        {
+          "name": "5.3 Security Submodel - Inject Dynamic Rule for FrameAAS (No Gateway)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Rule created or already present (201 Created or 409 Conflict)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{provider_admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"modelType\": \"SubmodelElementCollection\",\n  \"idShort\": \"{{frame_rule_id}}\",\n  \"value\": [\n    {\n      \"modelType\": \"Property\",\n      \"value\": \"{{role_name}}\",\n      \"idShort\": \"role\"\n    },\n    {\n      \"modelType\": \"SubmodelElementList\",\n      \"idShort\": \"action\",\n      \"orderRelevant\": true,\n      \"value\": [\n        {\n          \"modelType\": \"Property\",\n          \"value\": \"READ\"\n        }\n      ]\n    },\n    {\n      \"modelType\": \"SubmodelElementCollection\",\n      \"idShort\": \"targetInformation\",\n      \"value\": [\n        {\n          \"modelType\": \"SubmodelElementList\",\n          \"idShort\": \"aasIds\",\n          \"orderRelevant\": true,\n          \"value\": [\n            {\n              \"modelType\": \"Property\",\n              \"value\": \"https://example.com/ids/sm/5255_5191_9042_8127\"\n            }\n          ]\n        },\n        {\n          \"modelType\": \"Property\",\n          \"value\": \"aas\",\n          \"idShort\": \"@type\"\n        }\n      ]\n    }\n  ]\n}"
+            },
+            "url": "{{security_submodel_url}}/{{security_submodel_id}}/submodel-elements"
+          }
+        },
+        {
+          "name": "5.4 Direct Provider AAS - Read FrameAAS (Direct Intranet: 200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK for direct AAS query\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.expect(jsonData.id).to.include(\"5255_5191_9042_8127\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{provider_token}}"
+              }
+            ],
+            "url": "{{provider_aas_url}}/shells/{{frame_shell_id}}"
+          }
+        },
+        {
+          "name": "5.5 Direct Provider AAS - List Shells (Direct Intranet: 200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "pm.expect(jsonData.result).to.be.an(\"array\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{provider_token}}"
+              }
+            ],
+            "url": "{{provider_aas_url}}/shells"
+          }
+        },
+        {
+          "name": "5.6 Security Submodel - Revoke Dynamic Rule (No Gateway)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Rule deleted (200 OK or 204 No Content)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{provider_admin_token}}"
+              }
+            ],
+            "url": "{{security_submodel_url}}/{{security_submodel_id}}/submodel-elements/{{frame_rule_id}}"
+          }
+        },
+        {
+          "name": "5.7 Direct Provider AAS - Read FrameAAS Post-Revocation (Direct Intranet: 403 Forbidden)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code reverts to 403 Forbidden after rule deletion\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{provider_token}}"
+              }
+            ],
+            "url": "{{provider_aas_url}}/shells/{{frame_shell_id}}"
+          }
+        }
+      ]
     }
   ]
 }
