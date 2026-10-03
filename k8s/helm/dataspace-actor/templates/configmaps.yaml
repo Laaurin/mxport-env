@@ -1,0 +1,418 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-gateway-config
+data:
+  nginx.conf: |
+    worker_processes 1;
+    events { worker_connections 1024; }
+
+    http {
+      error_log /dev/stderr info;
+      access_log /dev/stdout;
+      lua_shared_dict sts_token_cache 10m;
+      lua_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+      lua_ssl_verify_depth 3;
+
+      resolver 10.43.0.10 valid=10s ipv6=off;
+
+      init_by_lua_block {
+        allowed_providers = {
+          {{- range .Values.gateway.allowedProviders }}
+          ["{{ . }}"] = true,
+          {{- end }}
+        }
+      }
+
+      server {
+        listen 80;
+        server_name {{ .Release.Name }}-gateway;
+
+        location = /healthz { return 200 "OK\n"; }
+
+        # Outbound proxy: Forward requests to another dataspace actor
+        location ~ ^/external/(?<provider_host>[^/]+)(?<provider_path>/.*)$ {
+          set $provider_target "";
+          access_by_lua_block {
+            local host = ngx.var.provider_host
+            if not allowed_providers[host] then
+              ngx.log(ngx.WARN, "blocked non-allowlisted provider: ", host)
+              return ngx.exit(ngx.HTTP_FORBIDDEN)
+            end
+
+            local target = host
+            if not string.find(host, "%.") then
+              target = host .. ".{{ .Release.Namespace }}.svc.cluster.local"
+            end
+            ngx.var.provider_target = target
+
+            require("sts").exchange({
+              sts_url        = "http://{{ .Release.Name }}-sts.{{ .Release.Namespace }}.svc.cluster.local:9050/sts/token",
+              target_service = host,
+            })
+          }
+
+          proxy_set_header Host $provider_host;
+          proxy_pass http://$provider_target$provider_path;
+        }
+
+        # Inbound proxy: Authenticate incoming customer requests & forward to local AAS
+        location / {
+          access_by_lua_block {
+            require("sts").exchange({
+              sts_url        = "http://{{ .Release.Name }}-sts.{{ .Release.Namespace }}.svc.cluster.local:9050/sts/token",
+              target_service = "{{ .Release.Name }}-aas",
+            })
+          }
+
+          set $upstream "http://{{ .Release.Name }}-aas.{{ .Release.Namespace }}.svc.cluster.local:8081";
+          proxy_pass $upstream;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+        }
+      }
+    }
+
+  sts.lua: |
+    local _M = {}
+    local http  = require("resty.http")
+    local cjson = require("cjson")
+
+    function _M.exchange(opts)
+      opts = opts or {}
+      local sts_url = opts.sts_url
+      if not sts_url then
+        ngx.log(ngx.ERR, "sts.exchange: sts_url is required")
+        ngx.exit(500)
+      end
+
+      local target_service = opts.target_service
+      if not target_service then
+        ngx.log(ngx.ERR, "sts.exchange: target_service is required")
+        ngx.exit(500)
+      end
+
+      local cache_name  = opts.cache_name  or "sts_token_cache"
+      local default_ttl = opts.default_ttl or 300
+
+      local auth = ngx.req.get_headers()["Authorization"]
+      if not auth then
+        return
+      end
+
+      local source_token = string.match(auth, "^[Bb]earer%s+(.+)$")
+      if not source_token then return end
+
+      local cache = ngx.shared[cache_name]
+      local cache_key = target_service .. ":" .. source_token
+      local target_token = cache:get(cache_key)
+
+      if not target_token then
+        local httpc = http.new()
+        ngx.log(ngx.INFO, "sts.exchange: requesting token from ", sts_url, " for target ", target_service)
+        local res, err = httpc:request_uri(sts_url, {
+          method  = "POST",
+          headers = { ["Content-Type"] = "application/x-www-form-urlencoded" },
+          body    = "grant_type="
+            .. ngx.escape_uri("urn:ietf:params:oauth:grant-type:token-exchange")
+            .. "&subject_token_type="
+            .. ngx.escape_uri("urn:ietf:params:oauth:token-type:jwt")
+            .. "&subject_token=" .. ngx.escape_uri(source_token),
+        })
+
+        if not res then
+          ngx.log(ngx.ERR, "sts.exchange: failed to request token from ", sts_url, ": ", err)
+          ngx.status = 502
+          ngx.exit(502)
+        elseif res.status ~= 200 then
+          ngx.log(ngx.ERR, "sts.exchange: STS returned status ", res.status, ", body: ", res.body)
+          local status = (res.status >= 400 and res.status < 500) and 401 or 502
+          ngx.status = status
+          ngx.exit(status)
+        end
+
+        local data = cjson.decode(res.body)
+        target_token = data.access_token
+        cache:set(cache_key, target_token, tonumber(data.expires_in) or default_ttl)
+      end
+
+      ngx.req.set_header("Authorization", "Bearer " .. target_token)
+    end
+
+    return _M
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-sts-config
+data:
+  server-config.yml: |
+    serviceConfiguration:
+      issuer: http://{{ .Release.Name }}-sts:9050/sts
+      chooseFilterManagerBySubjectToken: true
+      signingKeyAlias: {{ .Release.Name }}-sts-key
+      tokenExchangeFilterConfigurationYml: filter-config/filter-config.yml
+      plainkey:
+        keyLocation: signingkey/private_key.pem
+        keyId: {{ .Release.Name }}-sts-key
+      outgoingTokenScopeClaimName: scope
+      forceOverwriteIssuerWithConfiguredValue: true
+      forceOverwriteIatWithNow: true
+      forceNewJti: true
+
+    issuerSpecificConfiguration:
+      # Local Keycloak (for outbound token issuance)
+      - issuer: http://keycloak:8080/realms/{{ .Values.actor.name }}
+        jwksUri: "http://keycloak:8080/realms/{{ .Values.actor.name }}/protocol/openid-connect/certs"
+        connectionTimeoutInMs: 20000
+        readTimeoutInMs: 20000
+        tokenScopeClaimName: scope
+        propagateIssuerToValidators: true
+        disableSubjectTokenClaimsSetValidator: false
+        subjectTokenClaimsSetValidator:
+          issuerRequired: true
+          expiryClaimRequired: true
+          expiryCheckDisabled: false
+        actorTokenRequired: false
+
+      - issuer: http://keycloak.localhost/realms/{{ .Values.actor.name }}
+        jwksUri: "http://keycloak:8080/realms/{{ .Values.actor.name }}/protocol/openid-connect/certs"
+        connectionTimeoutInMs: 20000
+        readTimeoutInMs: 20000
+        tokenScopeClaimName: scope
+        propagateIssuerToValidators: true
+        disableSubjectTokenClaimsSetValidator: false
+        subjectTokenClaimsSetValidator:
+          issuerRequired: true
+          expiryClaimRequired: true
+          expiryCheckDisabled: false
+        actorTokenRequired: false
+
+      {{- range .Values.sts.trustedIssuers }}
+      # Trusted incoming partner: {{ .name }}
+      - issuer: {{ .issuer }}
+        jwksUri: {{ .jwksUri | quote }}
+        connectionTimeoutInMs: 20000
+        readTimeoutInMs: 20000
+        tokenScopeClaimName: scope
+        propagateIssuerToValidators: true
+        disableSubjectTokenClaimsSetValidator: false
+        subjectTokenClaimsSetValidator:
+          issuerRequired: true
+          expiryClaimRequired: true
+          expiryCheckDisabled: false
+        actorTokenRequired: false
+      {{- end }}
+
+  filter-config.yml: |
+    # Outbound tokens from local Keycloak
+    !!com.siemens.iam.exchange.core.filter.ClaimsCopyFilter
+      issuer: http://keycloak:8080/realms/{{ .Values.actor.name }}
+      claimsMap:
+        sub: sub
+        scope: scope
+    ---
+    !!com.siemens.iam.exchange.core.filter.SetExpiryFilter
+      issuer: http://keycloak:8080/realms/{{ .Values.actor.name }}
+      referenceSubjectIat: false
+      expiry: 300
+    ---
+    !!com.siemens.iam.exchange.core.filter.ClaimsAppenderFilter
+      issuer: http://keycloak:8080/realms/{{ .Values.actor.name }}
+      claimsMap:
+        environment: {{ .Values.actor.name }}
+    ---
+    !!com.siemens.iam.exchange.core.filter.ClaimsCopyFilter
+      issuer: http://keycloak.localhost/realms/{{ .Values.actor.name }}
+      claimsMap:
+        sub: sub
+        scope: scope
+    ---
+    !!com.siemens.iam.exchange.core.filter.SetExpiryFilter
+      issuer: http://keycloak.localhost/realms/{{ .Values.actor.name }}
+      referenceSubjectIat: false
+      expiry: 300
+    ---
+    !!com.siemens.iam.exchange.core.filter.ClaimsAppenderFilter
+      issuer: http://keycloak.localhost/realms/{{ .Values.actor.name }}
+      claimsMap:
+        environment: {{ .Values.actor.name }}
+    {{- range .Values.sts.trustedIssuers }}
+    ---
+    # Inbound tokens from partner {{ .name }}
+    !!com.siemens.iam.exchange.core.filter.ClaimsCopyFilter
+      issuer: {{ .issuer }}
+      claimsMap:
+        sub: sub
+        scope: scope
+    ---
+    !!com.siemens.iam.exchange.core.filter.SetExpiryFilter
+      issuer: {{ .issuer }}
+      referenceSubjectIat: false
+      expiry: 300
+    ---
+    !!com.siemens.iam.exchange.core.filter.ClaimsAppenderFilter
+      issuer: {{ .issuer }}
+      claimsMap:
+        environment: {{ $.Values.actor.name }}
+    ---
+    !!com.siemens.iam.exchange.sample.filter.BasyxFilter
+      issuer: {{ .issuer }}
+      targetAudience: {{ $.Release.Name }}-aas
+    {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-secsm-config
+data:
+  application.properties: |
+    server.port=8081
+    basyx.backend=MongoDB
+    spring.data.mongodb.uri=mongodb://mongoAdmin:mongoPassword@mongodb:27017/{{ .Release.Name }}_secsm?authSource=admin
+    spring.mongodb.uri=mongodb://mongoAdmin:mongoPassword@mongodb:27017/{{ .Release.Name }}_secsm?authSource=admin
+    basyx.feature.authorization.enabled=true
+    basyx.feature.authorization.type=rbac
+    basyx.feature.authorization.jwtBearerTokenProvider=keycloak
+    basyx.feature.authorization.rbac.file=file:/application/rbac_rules.json
+    spring.security.oauth2.resourceserver.jwt.issuer-uri=http://keycloak:8080/realms/BaSyx
+
+  rbac_rules.json: |
+    [
+      {
+        "role": "admin",
+        "action": ["CREATE", "READ", "UPDATE", "DELETE"],
+        "targetInformation": {
+          "@type": "submodel",
+          "submodelIds": "*",
+          "submodelElementIdShortPaths": "*"
+        }
+      }
+    ]
+
+  initial-submodel.json: |
+    {
+      "modelType": "Submodel",
+      "id": "SecuritySubmodel",
+      "idShort": "TechnicalData",
+      "kind": "Instance",
+      "submodelElements": [],
+      "semanticId": {
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "0173-1#01-AFZ615#016"
+          }
+        ],
+        "type": "ExternalReference"
+      }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-aas-config
+data:
+  application.properties: |
+    server.port=8081
+    basyx.backend=InMemory
+    basyx.environment=file:aas
+    basyx.cors.allowed-origins=*
+    basyx.cors.allowed-methods=GET,POST,PATCH,DELETE,PUT,OPTIONS,HEAD
+
+    basyx.feature.authorization.enabled=true
+    basyx.feature.authorization.type=rbac
+    basyx.feature.authorization.jwtBearerTokenProvider=keycloak
+    basyx.feature.authorization.rbac.file=file:/application/rbac_rules.json
+
+    basyx.feature.authorization.rules.backend=Submodel
+    basyx.feature.authorization.rules.backend.submodel.authorization.endpoint=http://{{ .Release.Name }}-secsm:8081/submodels/U2VjdXJpdHlTdWJtb2RlbA==
+    basyx.feature.authorization.rules.backend.submodel.authorization.token-endpoint=http://keycloak:8080/realms/BaSyx/protocol/openid-connect/token
+    basyx.feature.authorization.rules.backend.submodel.authorization.grant-type=CLIENT_CREDENTIALS
+    basyx.feature.authorization.rules.backend.submodel.authorization.client-id=workstation-1
+    basyx.feature.authorization.rules.backend.submodel.authorization.client-secret=nY0mjyECF60DGzNmQUjL81XurSl8etom
+
+    spring.security.oauth2.resourceserver.jwt.issuer-uri=http://{{ .Release.Name }}-sts:9050/sts
+    basyx.aasenvironment.authorization.preconfiguration.token-endpoint=http://keycloak:8080/realms/BaSyx/protocol/openid-connect/token
+    basyx.aasenvironment.authorization.preconfiguration.grant-type=CLIENT_CREDENTIALS
+    basyx.aasenvironment.authorization.preconfiguration.client-id=workstation-1
+    basyx.aasenvironment.authorization.preconfiguration.client-secret=nY0mjyECF60DGzNmQUjL81XurSl8etom
+    spring.servlet.multipart.max-request-size=128MB
+    spring.servlet.multipart.max-file-size=128MB
+
+  rbac_rules.json: |
+    [
+      {
+        "role": "admin",
+        "action": ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"],
+        "targetInformation": {
+          "@type": "concept-description",
+          "conceptDescriptionIds": "*"
+        }
+      },
+      {
+        "role": "admin",
+        "action": ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"],
+        "targetInformation": {
+          "@type": "aas",
+          "aasIds": "*"
+        }
+      },
+      {
+        "role": "admin",
+        "action": ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"],
+        "targetInformation": {
+          "@type": "submodel",
+          "submodelIds": "*",
+          "submodelElementIdShortPaths": "*"
+        }
+      },
+      {
+        "role": "admin",
+        "action": ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"],
+        "targetInformation": {
+          "@type": "aas-environment",
+          "aasIds": "*",
+          "submodelIds": "*",
+          "conceptDescriptionIds": "*"
+        }
+      },
+      {
+        "role": "basyx-creator",
+        "action": ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"],
+        "targetInformation": {
+          "@type": "concept-description",
+          "conceptDescriptionIds": "*"
+        }
+      },
+      {
+        "role": "basyx-creator",
+        "action": ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"],
+        "targetInformation": {
+          "@type": "aas",
+          "aasIds": "*"
+        }
+      },
+      {
+        "role": "basyx-creator",
+        "action": ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"],
+        "targetInformation": {
+          "@type": "submodel",
+          "submodelIds": "*",
+          "submodelElementIdShortPaths": "*"
+        }
+      },
+      {
+        "role": "basyx-creator",
+        "action": ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"],
+        "targetInformation": {
+          "@type": "aas-environment",
+          "aasIds": "*",
+          "submodelIds": "*",
+          "conceptDescriptionIds": "*"
+        }
+      }
+    ]
+
+  model.json: |-
+    {{ toJson .Values.aasModel }}

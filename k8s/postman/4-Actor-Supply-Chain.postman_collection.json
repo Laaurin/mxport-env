@@ -1,0 +1,473 @@
+{
+  "info": {
+    "_postman_id": "b1c2d3e4-f5a6-7b8c-9d0e-1f2a3b4c5d6e",
+    "name": "4-Actor Dataspace Cascading Supply Chain",
+    "description": "End-to-End Test Suite for the 4-Actor Cascading Supply Chain in k3d (OEM -> Tier 1 -> Tier 2 -> Tier 3) with RFC 8693 Token Exchange, Dynamic RBAC, and Security Boundary Enforcement.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "keycloak_base", "value": "http://keycloak.localhost" },
+    { "key": "oem_gw", "value": "http://oem.localhost" },
+    { "key": "tier1_gw", "value": "http://tier1.localhost" },
+    { "key": "tier2_gw", "value": "http://tier2.localhost" },
+    { "key": "tier3_gw", "value": "http://tier3.localhost" },
+    { "key": "oem_token", "value": "" },
+    { "key": "tier1_token", "value": "" },
+    { "key": "tier2_token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0 - Health Checks",
+      "item": [
+        {
+          "name": "Keycloak Health (BaSyx)",
+          "request": {
+            "method": "GET",
+            "url": "{{keycloak_base}}/realms/BaSyx/.well-known/openid-configuration"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Issuer is present', function () { var j = pm.response.json(); pm.expect(j.issuer).to.include('/realms/BaSyx'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "OEM Gateway Health",
+          "request": { "method": "GET", "url": "{{oem_gw}}/healthz" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status is 200', function () { pm.response.to.have.status(200); });"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Tier 1 Gateway Health",
+          "request": { "method": "GET", "url": "{{tier1_gw}}/healthz" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status is 200', function () { pm.response.to.have.status(200); });"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Tier 2 Gateway Health",
+          "request": { "method": "GET", "url": "{{tier2_gw}}/healthz" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status is 200', function () { pm.response.to.have.status(200); });"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Tier 3 Gateway Health",
+          "request": { "method": "GET", "url": "{{tier3_gw}}/healthz" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status is 200', function () { pm.response.to.have.status(200); });"], "type": "text/javascript" } }]
+        }
+      ]
+    },
+    {
+      "name": "1 - Token Acquisition",
+      "item": [
+        {
+          "name": "Get OEM Token",
+          "request": {
+            "method": "POST",
+            "url": "{{keycloak_base}}/realms/oem/protocol/openid-connect/token",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "client_credentials" },
+                { "key": "client_id", "value": "oem-client" },
+                { "key": "client_secret", "value": "oem-secret-12345" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.collectionVariables.set('oem_token', data.access_token);",
+                  "pm.test('Token received', function () { pm.expect(data.access_token).to.be.a('string'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Tier 1 Token",
+          "request": {
+            "method": "POST",
+            "url": "{{keycloak_base}}/realms/tier1/protocol/openid-connect/token",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "client_credentials" },
+                { "key": "client_id", "value": "tier1-client" },
+                { "key": "client_secret", "value": "tier1-secret-12345" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.collectionVariables.set('tier1_token', data.access_token);",
+                  "pm.test('Token received', function () { pm.expect(data.access_token).to.be.a('string'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Tier 2 Token",
+          "request": {
+            "method": "POST",
+            "url": "{{keycloak_base}}/realms/tier2/protocol/openid-connect/token",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "client_credentials" },
+                { "key": "client_id", "value": "tier2-client" },
+                { "key": "client_secret", "value": "tier2-secret-12345" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.collectionVariables.set('tier2_token', data.access_token);",
+                  "pm.test('Token received', function () { pm.expect(data.access_token).to.be.a('string'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 - Hop 1 (OEM -> Tier 1)",
+      "item": [
+        {
+          "name": "OEM queries Tier 1 Shells",
+          "request": {
+            "method": "GET",
+            "url": "{{tier1_gw}}/shells",
+            "header": [{ "key": "Authorization", "value": "Bearer {{oem_token}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.test('Contains BatteryPackAAS', function () {",
+                  "    var shell = data.result.find(function(s) { return s.idShort === 'BatteryPackAAS'; });",
+                  "    pm.expect(shell).to.not.be.undefined;",
+                  "    pm.expect(shell.id).to.eql('urn:dataspace:tier1:aas:battery-pack-001');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "OEM queries Tier 1 Technical Data",
+          "request": {
+            "method": "GET",
+            "url": "{{tier1_gw}}/submodels/dXJuOmRhdGFzcGFjZTp0aWVyMTpzbTpwYWNrLXRlY2gtZGF0YQ==",
+            "header": [{ "key": "Authorization", "value": "Bearer {{oem_token}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.test('Contains PackCapacityKWh', function () {",
+                  "    var p = data.submodelElements.find(function(e) { return e.idShort === 'PackCapacityKWh'; });",
+                  "    pm.expect(p.value).to.eql('80.0');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "OEM queries Tier 1 Carbon Footprint",
+          "request": {
+            "method": "GET",
+            "url": "{{tier1_gw}}/submodels/dXJuOmRhdGFzcGFjZTp0aWVyMTpzbTpwYWNrLXBjZg==",
+            "header": [{ "key": "Authorization", "value": "Bearer {{oem_token}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.test('Contains ProductCarbonFootprintKgCO2e', function () {",
+                  "    var p = data.submodelElements.find(function(e) { return e.idShort === 'ProductCarbonFootprintKgCO2e'; });",
+                  "    pm.expect(p.value).to.eql('2150.0');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 - Hop 2 (Tier 1 -> Tier 2)",
+      "item": [
+        {
+          "name": "Tier 1 queries Tier 2 Shells",
+          "request": {
+            "method": "GET",
+            "url": "{{tier2_gw}}/shells",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tier1_token}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.test('Contains BatteryModuleAAS', function () {",
+                  "    var shell = data.result.find(function(s) { return s.idShort === 'BatteryModuleAAS'; });",
+                  "    pm.expect(shell).to.not.be.undefined;",
+                  "    pm.expect(shell.id).to.eql('urn:dataspace:tier2:aas:battery-module-001');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tier 1 queries Tier 2 Technical Data",
+          "request": {
+            "method": "GET",
+            "url": "{{tier2_gw}}/submodels/dXJuOmRhdGFzcGFjZTp0aWVyMjpzbTptb2R1bGUtdGVjaC1kYXRh",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tier1_token}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.test('Contains CellConfiguration', function () {",
+                  "    var p = data.submodelElements.find(function(e) { return e.idShort === 'CellConfiguration'; });",
+                  "    pm.expect(p.value).to.eql('12S1P');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tier 1 queries Tier 2 Carbon Footprint",
+          "request": {
+            "method": "GET",
+            "url": "{{tier2_gw}}/submodels/dXJuOmRhdGFzcGFjZTp0aWVyMjpzbTptb2R1bGUtcGNm",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tier1_token}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.test('Contains ProductCarbonFootprintKgCO2e', function () {",
+                  "    var p = data.submodelElements.find(function(e) { return e.idShort === 'ProductCarbonFootprintKgCO2e'; });",
+                  "    pm.expect(p.value).to.eql('245.0');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 - Hop 3 (Tier 2 -> Tier 3)",
+      "item": [
+        {
+          "name": "Tier 2 queries Tier 3 Shells",
+          "request": {
+            "method": "GET",
+            "url": "{{tier3_gw}}/shells",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tier2_token}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.test('Contains BatteryCellAAS', function () {",
+                  "    var shell = data.result.find(function(s) { return s.idShort === 'BatteryCellAAS'; });",
+                  "    pm.expect(shell).to.not.be.undefined;",
+                  "    pm.expect(shell.id).to.eql('urn:dataspace:tier3:aas:battery-cell-001');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tier 2 queries Tier 3 Technical Data",
+          "request": {
+            "method": "GET",
+            "url": "{{tier3_gw}}/submodels/dXJuOmRhdGFzcGFjZTp0aWVyMzpzbTpjZWxsLXRlY2gtZGF0YQ==",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tier2_token}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.test('Contains Chemistry', function () {",
+                  "    var p = data.submodelElements.find(function(e) { return e.idShort === 'Chemistry'; });",
+                  "    pm.expect(p.value).to.eql('NMC 811');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tier 2 queries Tier 3 Carbon Footprint",
+          "request": {
+            "method": "GET",
+            "url": "{{tier3_gw}}/submodels/dXJuOmRhdGFzcGFjZTp0aWVyMzpzbTpjZWxsLXBjZg==",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tier2_token}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.test('Contains 18.5 kg CO2e', function () {",
+                  "    var p = data.submodelElements.find(function(e) { return e.idShort === 'ProductCarbonFootprintKgCO2e'; });",
+                  "    pm.expect(p.value).to.eql('18.5');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5 - Boundary Enforcement (Negative Tests)",
+      "item": [
+        {
+          "name": "Bypass: OEM calls Tier 3 Directly (Must Fail 401)",
+          "request": {
+            "method": "GET",
+            "url": "{{tier3_gw}}/shells",
+            "header": [{ "key": "Authorization", "value": "Bearer {{oem_token}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('OEM bypass to Tier 3 rejected with 401', function () { pm.response.to.have.status(401); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bypass: OEM calls Tier 2 Directly (Must Fail 401)",
+          "request": {
+            "method": "GET",
+            "url": "{{tier2_gw}}/shells",
+            "header": [{ "key": "Authorization", "value": "Bearer {{oem_token}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('OEM bypass to Tier 2 rejected with 401', function () { pm.response.to.have.status(401); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bypass: Tier 1 calls Tier 3 Directly (Must Fail 401)",
+          "request": {
+            "method": "GET",
+            "url": "{{tier3_gw}}/shells",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tier1_token}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Tier 1 bypass to Tier 3 rejected with 401', function () { pm.response.to.have.status(401); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unauthenticated Call to Tier 1 (Must Fail 401)",
+          "request": {
+            "method": "GET",
+            "url": "{{tier1_gw}}/shells"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Unauthenticated call rejected with 401', function () { pm.response.to.have.status(401); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

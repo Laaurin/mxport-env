@@ -1,0 +1,73 @@
+{
+  "id": "oem",
+  "realm": "oem",
+  "displayName": "OEM Vehicle Manufacturer",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "accessTokenLifespan": 3600,
+  "roles": {
+    "realm": [
+      {
+        "name": "partner-oem",
+        "description": "OEM Partner Role"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "oem-client",
+      "name": "OEM Client",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "oem-secret-12345",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "defaultClientScopes": ["basic", "openid", "profile", "email", "roles"],
+      "protocolMappers": [
+        {
+          "name": "client-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-oem-client",
+      "enabled": true,
+      "serviceAccountClientId": "oem-client",
+      "realmRoles": ["partner-oem"]
+    },
+    {
+      "username": "oem-user",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "OEM",
+      "lastName": "User",
+      "email": "oem@dataspace.local",
+      "realmRoles": ["partner-oem"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "oem-pass",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

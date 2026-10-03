@@ -1,0 +1,93 @@
+actor:
+  name: "oem"
+  displayName: "OEM Vehicle Manufacturer"
+
+gateway:
+  allowedProviders:
+    - "tier1-gateway"
+
+ingress:
+  enabled: true
+  host: "oem.localhost"
+
+sts:
+  signingKey: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCN/UBIB93zkKHZ
+    DPe4kPpoNTyKTl8soH6X54hPWO8J8DgaCX7lHfon28+ldEbLQ5OwO46VY0BqOybc
+    V9I9JXgMz0Aex0PR5TixmXp6WXG9Z8NFbkp9w3LYOImQB6+O8q3l+FibYs5vWfpi
+    efHyMRouoM+cvVzlDFRY/tkl4xYT5FbdOtutAgL3gw99oZnuCBQa9rk6dxnl5Ldx
+    KzK0AHLFsGttgp3R/vZE/vRqqwC2aYvLpL9rKfv8oir4mW+wizE7RBov9CwJTboD
+    hzF23UhiOtmhUbZHMsr8QxyifVhVdSL0tyoxZAWAqITsfl35YhQi9TWXXWdeLA3S
+    Pfzjp1w/AgMBAAECggEAAYDLfdtFr5CdSY9hI4Rh1AQjXpjIdnqzlUOk3xlGzokE
+    B+mkfOsaGYEH+iYxaankJCHn8A+UeTYWNI/UG0RFY0uMlxwnlBYkOw7aqC5AcRox
+    b3Mr5AnTazBVJHi+lF1DiR+zBcPcrHrfz6+Cy0pzjrnrTg7Ny50pzMINAm9x33+T
+    RueFGXt8AZ4PCIQrJ5DHT0bUjC9YkmEVrlSwiGwKKfEydZ1kiMNXPsLrw1mmVpjK
+    3dBfnPP6pdYzWkz4E/b1N+wQCmlY+kDRiyC0Vs8oL9sakdDJ05i7O7GeEFrGMrdx
+    2TMyFcB8c5+/HpmSvpivu3c80zDweN9alpkckYiToQKBgQDGtzEESSrYPGGxW7U5
+    lqWu9JJGzc6nCYuVS+9WxbY9wC/X3xqu/hPMXf1ku/Dcg0mqPKa+7CIfzY1HwQ6R
+    hRpmVytHexhxT244ypSb5S6gieeMIQl6Y5kvjJT7pqV3kkED3epj0kxeEaJdh/aA
+    OvC3ITG3dPw/D+uj2NN4PUzXdQKBgQC268Vz9zkEHO5J1KWmoV8zxDAyVjrIfJ5R
+    bap8Evpew/mfT3xLrMTzAewhS1C5WKw3BgG9QoCLpaqrmdJ6HV1VD+dPQGZeYPrN
+    qkKl0f2+rUqzKxOPDsV/kFRt/ap+JFcCJtB7kSWZyABitsQMladHd5DfzPEbgFXE
+    w7xVGTiiYwKBgQDF/OYAoCnpEpg/juEMhNWFcLaBhzL76J3DXcoUiZ8e/WptyiOa
+    8RmmyIrcoAjGnKR70jxNA5aoWzQFpwut35FDIFzFtpbO5tYqDWVtwjXnzB8A1jXM
+    VIne/1G9PfelH/pZMPUFChX+r9E3IW1vq8oEnDUd1Zgx+NnOAQ4JwgHatQKBgFOt
+    b1opUe/LvEYR/OVJFN/9c37Ta3ijaVkercqsc9Q+GkcCeX20vzPbQUXJyle/dKiH
+    GuyVK3C2jGiLqXkrTbLH36ylbS7ndlP2+x4X/dfoNi/YGM5sl3RPdhAK5p9lyFe3
+    oc+lCmpaz7JYoT6Qh0FuNNvsSK+n+ZRVZiYXr4y5AoGBALfmN67aaOXRDdEk3IO/
+    ymrikI6Mn7bb4+Las1LUDdjBm4WgWTKVqaejnZaEtq3U/EID/QIXl0JLtx6ZOteY
+    a56R/3/19D53ojYZrZ5t4w4WIcUxp12eIvTLc67fkz+jU4KVdFRvWmAMr4lLFKj0
+    SGn983YokUSr7chTIM+Jzb00
+    -----END PRIVATE KEY-----
+  trustedIssuers: []
+
+aasModel:
+  assetAdministrationShells:
+    - modelType: "AssetAdministrationShell"
+      id: "urn:dataspace:oem:aas:vehicle-001"
+      idShort: "ElectricVehicleAAS"
+      assetInformation:
+        assetKind: "Instance"
+        globalAssetId: "urn:dataspace:oem:asset:vehicle-001"
+      submodels:
+        - type: "ModelReference"
+          keys:
+            - type: "Submodel"
+              value: "urn:dataspace:oem:sm:vehicle-tech-data"
+        - type: "ModelReference"
+          keys:
+            - type: "Submodel"
+              value: "urn:dataspace:oem:sm:dpp"
+  submodels:
+    - modelType: "Submodel"
+      id: "urn:dataspace:oem:sm:vehicle-tech-data"
+      idShort: "TechnicalData"
+      kind: "Instance"
+      submodelElements:
+        - modelType: "Property"
+          idShort: "ModelName"
+          valueType: "xs:string"
+          value: "FutureMotors iX9"
+        - modelType: "Property"
+          idShort: "VIN"
+          valueType: "xs:string"
+          value: "WBA0000000000001"
+        - modelType: "Property"
+          idShort: "BatteryPackRef"
+          valueType: "xs:string"
+          value: "urn:dataspace:tier1:aas:battery-pack-001"
+    - modelType: "Submodel"
+      id: "urn:dataspace:oem:sm:dpp"
+      idShort: "DigitalProductPassport"
+      kind: "Instance"
+      submodelElements:
+        - modelType: "Property"
+          idShort: "TotalVehiclePCF"
+          valueType: "xs:double"
+          value: "9800.0"
+        - modelType: "Property"
+          idShort: "DPPStatus"
+          valueType: "xs:string"
+          value: "CERTIFIED"
+  conceptDescriptions: []

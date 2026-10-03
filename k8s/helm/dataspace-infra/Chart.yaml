@@ -1,0 +1,5 @@
+apiVersion: v2
+name: dataspace-infra
+description: Shared Infrastructure for Multi-Actor Dataspace (MongoDB & Keycloak)
+version: 0.1.0
+appVersion: "1.0.0"

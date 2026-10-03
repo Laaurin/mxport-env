@@ -1,0 +1,73 @@
+{
+  "id": "tier3",
+  "realm": "tier3",
+  "displayName": "Tier 3 Cell Supplier",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "accessTokenLifespan": 3600,
+  "roles": {
+    "realm": [
+      {
+        "name": "partner-tier3",
+        "description": "Tier 3 Partner Role"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "tier3-client",
+      "name": "Tier 3 Client",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "tier3-secret-12345",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "defaultClientScopes": ["basic", "openid", "profile", "email", "roles"],
+      "protocolMappers": [
+        {
+          "name": "client-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-tier3-client",
+      "enabled": true,
+      "serviceAccountClientId": "tier3-client",
+      "realmRoles": ["partner-tier3"]
+    },
+    {
+      "username": "tier3-user",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Tier3",
+      "lastName": "User",
+      "email": "tier3@dataspace.local",
+      "realmRoles": ["partner-tier3"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "tier3-pass",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

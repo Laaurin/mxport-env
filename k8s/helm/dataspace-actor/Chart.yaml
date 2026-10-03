@@ -1,0 +1,5 @@
+apiVersion: v2
+name: dataspace-actor
+description: Dataspace Actor Helm Chart (AAS, STS, Gateway, Security Submodel)
+version: 0.1.0
+appVersion: "1.0.0"

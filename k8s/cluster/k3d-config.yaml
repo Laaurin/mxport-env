@@ -1,0 +1,41 @@
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: dataspace
+servers: 1
+agents: 0
+image: rancher/k3s:v1.30.2-k3s1
+ports:
+  - port: 80:80
+    nodeFilters:
+      - loadbalancer
+  - port: 8080:8080
+    nodeFilters:
+      - loadbalancer
+  - port: 8081:8081
+    nodeFilters:
+      - loadbalancer
+  - port: 8082:8082
+    nodeFilters:
+      - loadbalancer
+  - port: 8083:8083
+    nodeFilters:
+      - loadbalancer
+  - port: 8084:8084
+    nodeFilters:
+      - loadbalancer
+  - port: 3001:3000
+    nodeFilters:
+      - loadbalancer
+options:
+  k3d:
+    wait: true
+    timeout: "120s"
+  kubeconfig:
+    updateDefaultKubeconfig: true
+    switchCurrentContext: true
+  k3s:
+    extraArgs:
+      - arg: --kubelet-arg=eviction-hard=nodefs.available<1%,nodefs.inodesFree<1%,imagefs.available<1%
+        nodeFilters:
+          - server:0

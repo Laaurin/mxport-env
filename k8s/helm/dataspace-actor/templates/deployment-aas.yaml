@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-aas
+  labels:
+    app: {{ .Release.Name }}-aas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-aas
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-aas
+    spec:
+      tolerations:
+        - key: "node.kubernetes.io/disk-pressure"
+          operator: "Exists"
+          effect: "NoSchedule"
+        - key: "node.kubernetes.io/disk-pressure"
+          operator: "Exists"
+          effect: "NoExecute"
+      initContainers:
+        - name: init-secsm
+          image: curlimages/curl:8.5.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Keycloak and Security Submodel..."
+              until curl -sf "http://keycloak:8080/realms/BaSyx/.well-known/openid-configuration" > /dev/null; do
+                sleep 2
+              done
+              until curl -sf "http://{{ .Release.Name }}-secsm:8081/actuator/health" > /dev/null; do
+                sleep 2
+              done
+              echo "Fetching token from Keycloak..."
+              TOKEN=$(curl -s -X POST "http://keycloak:8080/realms/BaSyx/protocol/openid-connect/token" \
+                -d "client_id=workstation-1&client_secret=nY0mjyECF60DGzNmQUjL81XurSl8etom&grant_type=client_credentials&scope=openid" \
+                -H "Content-Type: application/x-www-form-urlencoded" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+              echo "Uploading initial SecuritySubmodel..."
+              until curl -sf -X POST "http://{{ .Release.Name }}-secsm:8081/submodels" \
+                -H "Authorization: Bearer $TOKEN" \
+                -H "Content-Type: application/json" \
+                -d @/config/initial-submodel.json > /dev/null || \
+                curl -sf -H "Authorization: Bearer $TOKEN" "http://{{ .Release.Name }}-secsm:8081/submodels/U2VjdXJpdHlTdWJtb2RlbA==" > /dev/null; do
+                echo "Retrying SecuritySubmodel upload..."
+                sleep 2
+              done
+              echo "Done initializing SecuritySubmodel."
+          volumeMounts:
+            - name: secsm-config
+              mountPath: /config
+      containers:
+        - name: aas
+          image: eclipsebasyx/aas-environment:2.0.0-SNAPSHOT
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+              name: http
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms64m -Xmx160m -XX:+UseSerialGC"
+          volumeMounts:
+            - name: aas-config
+              mountPath: /application/application.properties
+              subPath: application.properties
+            - name: aas-config
+              mountPath: /application/rbac_rules.json
+              subPath: rbac_rules.json
+            - name: aas-config
+              mountPath: /application/aas/model.json
+              subPath: model.json
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 10
+      volumes:
+        - name: aas-config
+          configMap:
+            name: {{ .Release.Name }}-aas-config
+        - name: secsm-config
+          configMap:
+            name: {{ .Release.Name }}-secsm-config

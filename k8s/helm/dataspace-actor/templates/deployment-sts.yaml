@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-sts
+  labels:
+    app: {{ .Release.Name }}-sts
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-sts
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-sts
+    spec:
+      tolerations:
+        - key: "node.kubernetes.io/disk-pressure"
+          operator: "Exists"
+          effect: "NoSchedule"
+        - key: "node.kubernetes.io/disk-pressure"
+          operator: "Exists"
+          effect: "NoExecute"
+      containers:
+        - name: sts
+          image: "mxport-leo-sts:local"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9050
+              name: http
+          env:
+            - name: SPRING_TOKEN_EXCHANGE_CONFIG_LOCATION
+              value: "/app/server-config/server-config.yml"
+            - name: SERVER_PORT
+              value: "9050"
+            - name: SERVER_CONTEXT_PATH
+              value: "/sts"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms64m -Xmx160m -XX:+UseSerialGC"
+          volumeMounts:
+            - name: sts-config
+              mountPath: /app/server-config/server-config.yml
+              subPath: server-config.yml
+            - name: sts-config
+              mountPath: /app/filter-config/filter-config.yml
+              subPath: filter-config.yml
+            - name: sts-key
+              mountPath: /app/signingkey/private_key.pem
+              subPath: private_key.pem
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /sts/jwks
+              port: 9050
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /sts/jwks
+              port: 9050
+            initialDelaySeconds: 45
+            periodSeconds: 15
+            failureThreshold: 10
+      volumes:
+        - name: sts-config
+          configMap:
+            name: {{ .Release.Name }}-sts-config
+        - name: sts-key
+          secret:
+            secretName: {{ .Release.Name }}-sts-key

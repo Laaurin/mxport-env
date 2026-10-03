@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+  labels:
+    app: mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb
+          image: "{{ .Values.mongodb.image.repository }}:{{ .Values.mongodb.image.tag }}"
+          imagePullPolicy: {{ .Values.mongodb.image.pullPolicy }}
+          args: ["--wiredTigerCacheSizeGB", "0.25"]
+          ports:
+            - containerPort: {{ .Values.mongodb.port }}
+              name: mongodb
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: {{ .Values.mongodb.rootUsername | quote }}
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              value: {{ .Values.mongodb.rootPassword | quote }}
+          resources:
+            {{- toYaml .Values.mongodb.resources | nindent 12 }}
+          readinessProbe:
+            exec:
+              command:
+                - mongosh
+                - --quiet
+                - -u
+                - {{ .Values.mongodb.rootUsername }}
+                - -p
+                - {{ .Values.mongodb.rootPassword }}
+                - --authenticationDatabase
+                - admin
+                - --eval
+                - "db.adminCommand({ ping: 1 })"
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 8
+            failureThreshold: 5
+          livenessProbe:
+            exec:
+              command:
+                - mongosh
+                - --quiet
+                - -u
+                - {{ .Values.mongodb.rootUsername }}
+                - -p
+                - {{ .Values.mongodb.rootPassword }}
+                - --authenticationDatabase
+                - admin
+                - --eval
+                - "db.adminCommand({ ping: 1 })"
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 8
+            failureThreshold: 5
+      tolerations:
+        - key: "node.kubernetes.io/disk-pressure"
+          operator: "Exists"
+          effect: "NoSchedule"
+        - key: "node.kubernetes.io/disk-pressure"
+          operator: "Exists"
+          effect: "NoExecute"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  labels:
+    app: mongodb
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.mongodb.port }}
+      targetPort: mongodb
+      name: mongodb
+  selector:
+    app: mongodb

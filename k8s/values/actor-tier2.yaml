@@ -1,0 +1,102 @@
+actor:
+  name: "tier2"
+  displayName: "Tier 2 Battery Module Supplier"
+
+gateway:
+  allowedProviders:
+    - "tier3-gateway"
+
+ingress:
+  enabled: true
+  host: "tier2.localhost"
+
+sts:
+  signingKey: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCzf7s4alGeObZY
+    OVWs+kuT74ItJYA14w7MvJR51Qge5/PggbqaJUkbluuO3eimrj/0cOFPfSbqvFlr
+    HPUNRvWPhBayaiSxkw3J2nlMsYagN5qb7llIVYXRFdzUlqTmobnNO+nCmAqGYLp/
+    6cj8kVtnZSGXE/+M5pfbcXFM7JaaiJlqTaAtSGdeW4ZIRxUMw4CtxSsGZJT4sVVe
+    NLxJKBdkMlnJV4o6x3Kc9N4qeP0gIlXbrCszQHJQmlOJfTCqWhMCgif7+0CZB3Mr
+    UlEy2DZYnYZosNw59ieeFILVu4b0gaoFWXh4mjE1UL/Gm3zKQUiC+acP2rwvBoXr
+    e6olgGhLAgMBAAECggEAKMxvkXMY+g3EFGlzv81kQEvAGuLbMWRaiM6UMNzq65tt
+    IypZb4/p/gtfnylxJ/GTN8wwahDYN6J38JC0YkAusGAliIf3ryTtjWPLDlOLdf8t
+    dSPHx1kpAU0m1GspMAKyaKOljkVgnwp9WXWZ6U5gqC+kYuJ4w13mRkqSphlgYd8o
+    Zew+OIa93ikaqn5EUrV9Y1+4qCGXKMIKxdvzXKdxWu9wSCrzzqQ2XM4BMXHPxYv2
+    Jud1t/zsXRDoOrPpsnZuW68lsCNNvJ/gNRZ12X7eflw8MkHujl9EPXzulru1UdbF
+    2fGproPs250a8kTRacgQM+HU71JQPylpvqVUX1f4gQKBgQDwqVO0aidc9+0lH5vq
+    TijdxTjsM9Hi9VJTHRMORLdaAD/DjZCyLn9gkDIy+OQs17KOUc7p5BbfKvUPbh7/
+    +ftYnmZf/riIvr97SOJ8e/4WAiuwJJUaXc1qMPieZAfqGl+P38dop5MFBDWQUteh
+    SkGmH71BUGinAyM8Wcdd6crs1QKBgQC+8HeDMMIQo+fEFl3re+RT1rlowixq5Gp/
+    Oz3X8LtKr400Nlvy1JlgZlOdLfR7vV+hRJyxyGFRzoanLDUkwWqJrzgUcbHYBpfD
+    1ExyRk6T378yrtSGdegTjG+NNvSS/sWUOPbqJGLRdWc9fJF5W9BxPLRowLIoq08y
+    4gMpyAIQnwKBgA+aWtPyofS0Gkry3q/1O08Nj2A5B92YHCtJUkf1ipGqPHgYQI5c
+    12NSVf7aBikmHux9P1YItLbpWRQUBqx/75zSQD7vC9XJ0C5VDmIVw+Z3Y4+6/3PD
+    KyM8Y5IZWC4EYbe5QXt2ieCkYjimNla9sr3rhuCqLu7NFEbAZ12eX8q1AoGBAJuy
+    uLH403cAQODMIGAC0ehvwxcip1eu1QzVARQSUJeRWYKHBSmZpUxPhMU6EQ/KF64I
+    pgHu1TUBRRoS2W8UbUzC3ecF4zC2B5F/j6rrm+3HWUD6AYF3qfwu21P6ySsIp5K7
+    dNTvQMlug/ZGmtWsQefkyXRWFbFGKDnkxRGP7+cfAoGBANKEkq5l8B8GM/xqB1dx
+    on6aLBjVU2+dE9HmxoAC9vaelv77waZTi/2YI+0/CaOm4hz0aiuo+U84a5uAtWqK
+    23oxTYsw0x89r1NUgdV5T0Mv88Lbop434WJhz4wHJYLO7m7lzEuGspLUF6O6REfg
+    u+XdYIA6VyDYH+U3PzzgnEp4
+    -----END PRIVATE KEY-----
+  trustedIssuers:
+    - name: tier1-sts
+      issuer: http://tier1-sts:9050/sts
+      jwksUri: "http://tier1-sts:9050/sts/jwks"
+    - name: tier1-keycloak
+      issuer: http://keycloak:8080/realms/tier1
+      jwksUri: "http://keycloak:8080/realms/tier1/protocol/openid-connect/certs"
+    - name: tier1-keycloak-host
+      issuer: http://keycloak.localhost/realms/tier1
+      jwksUri: "http://keycloak:8080/realms/tier1/protocol/openid-connect/certs"
+
+aasModel:
+  assetAdministrationShells:
+    - modelType: "AssetAdministrationShell"
+      id: "urn:dataspace:tier2:aas:battery-module-001"
+      idShort: "BatteryModuleAAS"
+      assetInformation:
+        assetKind: "Instance"
+        globalAssetId: "urn:dataspace:tier2:asset:battery-module-001"
+      submodels:
+        - type: "ModelReference"
+          keys:
+            - type: "Submodel"
+              value: "urn:dataspace:tier2:sm:module-tech-data"
+        - type: "ModelReference"
+          keys:
+            - type: "Submodel"
+              value: "urn:dataspace:tier2:sm:module-pcf"
+  submodels:
+    - modelType: "Submodel"
+      id: "urn:dataspace:tier2:sm:module-tech-data"
+      idShort: "TechnicalData"
+      kind: "Instance"
+      submodelElements:
+        - modelType: "Property"
+          idShort: "CellConfiguration"
+          valueType: "xs:string"
+          value: "12S1P"
+        - modelType: "Property"
+          idShort: "TotalVoltageV"
+          valueType: "xs:double"
+          value: "44.4"
+        - modelType: "Property"
+          idShort: "WeightKg"
+          valueType: "xs:double"
+          value: "15.2"
+    - modelType: "Submodel"
+      id: "urn:dataspace:tier2:sm:module-pcf"
+      idShort: "CarbonFootprint"
+      kind: "Instance"
+      submodelElements:
+        - modelType: "Property"
+          idShort: "ProductCarbonFootprintKgCO2e"
+          valueType: "xs:double"
+          value: "245.0"
+        - modelType: "Property"
+          idShort: "UpstreamCellRef"
+          valueType: "xs:string"
+          value: "urn:dataspace:tier3:aas:battery-cell-001"
+  conceptDescriptions: []
