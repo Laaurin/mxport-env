@@ -1,0 +1,97 @@
+{
+  "assetAdministrationShells": [
+    {
+      "idShort": "BatteryModuleAAS",
+      "id": "urn:dataspace:tier2:aas:battery-module-001",
+      "assetInformation": {
+        "assetKind": "Instance",
+        "globalAssetId": "urn:dataspace:tier2:asset:battery-module-001"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "urn:dataspace:tier2:sm:module-tech-data"
+            }
+          ]
+        },
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "urn:dataspace:tier2:sm:module-pcf"
+            }
+          ]
+        }
+      ],
+      "modelType": "AssetAdministrationShell"
+    }
+  ],
+  "submodels": [
+    {
+      "idShort": "TechnicalData",
+      "id": "urn:dataspace:tier2:sm:module-tech-data",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/TechnicalData/TechnicalData/1/1"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "idShort": "CellConfiguration",
+          "valueType": "xs:string",
+          "value": "12S1P",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "TotalVoltageV",
+          "valueType": "xs:double",
+          "value": "44.4",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "WeightKg",
+          "valueType": "xs:double",
+          "value": "15.2",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    },
+    {
+      "idShort": "CarbonFootprint",
+      "id": "urn:dataspace:tier2:sm:module-pcf",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CarbonFootprint/ProductCarbonFootprint/0/9"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "idShort": "ProductCarbonFootprintKgCO2e",
+          "valueType": "xs:double",
+          "value": "245.0",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "UpstreamCellRef",
+          "valueType": "xs:string",
+          "value": "urn:dataspace:tier3:aas:battery-cell-001",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    }
+  ]
+}

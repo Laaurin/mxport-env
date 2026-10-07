@@ -1,0 +1,97 @@
+{
+  "assetAdministrationShells": [
+    {
+      "idShort": "BatteryCellAAS",
+      "id": "urn:dataspace:tier3:aas:battery-cell-001",
+      "assetInformation": {
+        "assetKind": "Instance",
+        "globalAssetId": "urn:dataspace:tier3:asset:battery-cell-001"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "urn:dataspace:tier3:sm:cell-tech-data"
+            }
+          ]
+        },
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "urn:dataspace:tier3:sm:cell-pcf"
+            }
+          ]
+        }
+      ],
+      "modelType": "AssetAdministrationShell"
+    }
+  ],
+  "submodels": [
+    {
+      "idShort": "TechnicalData",
+      "id": "urn:dataspace:tier3:sm:cell-tech-data",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/TechnicalData/TechnicalData/1/1"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "idShort": "Chemistry",
+          "valueType": "xs:string",
+          "value": "NMC 811",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "NominalVoltageV",
+          "valueType": "xs:double",
+          "value": "3.7",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "CapacityAh",
+          "valueType": "xs:double",
+          "value": "50.0",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    },
+    {
+      "idShort": "CarbonFootprint",
+      "id": "urn:dataspace:tier3:sm:cell-pcf",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CarbonFootprint/ProductCarbonFootprint/0/9"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "idShort": "ProductCarbonFootprintKgCO2e",
+          "valueType": "xs:double",
+          "value": "18.5",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "PrimaryDataSharePercent",
+          "valueType": "xs:double",
+          "value": "85.0",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    }
+  ]
+}

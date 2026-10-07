@@ -1,0 +1,97 @@
+{
+  "assetAdministrationShells": [
+    {
+      "idShort": "BatteryPackAAS",
+      "id": "urn:dataspace:tier1:aas:battery-pack-001",
+      "assetInformation": {
+        "assetKind": "Instance",
+        "globalAssetId": "urn:dataspace:tier1:asset:battery-pack-001"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "urn:dataspace:tier1:sm:pack-tech-data"
+            }
+          ]
+        },
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "urn:dataspace:tier1:sm:pack-pcf"
+            }
+          ]
+        }
+      ],
+      "modelType": "AssetAdministrationShell"
+    }
+  ],
+  "submodels": [
+    {
+      "idShort": "TechnicalData",
+      "id": "urn:dataspace:tier1:sm:pack-tech-data",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/TechnicalData/TechnicalData/1/1"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "idShort": "PackCapacityKWh",
+          "valueType": "xs:double",
+          "value": "80.0",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "NominalVoltageV",
+          "valueType": "xs:double",
+          "value": "400.0",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "ModuleCount",
+          "valueType": "xs:integer",
+          "value": "8",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    },
+    {
+      "idShort": "CarbonFootprint",
+      "id": "urn:dataspace:tier1:sm:pack-pcf",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/CarbonFootprint/ProductCarbonFootprint/0/9"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "idShort": "ProductCarbonFootprintKgCO2e",
+          "valueType": "xs:double",
+          "value": "2150.0",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "UpstreamModuleRef",
+          "valueType": "xs:string",
+          "value": "urn:dataspace:tier2:aas:battery-module-001",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    }
+  ]
+}

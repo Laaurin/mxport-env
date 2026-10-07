@@ -13,7 +13,4 @@ ingress:
   enabled: true
   host: "actor.localhost"
 
-aasModel:
-  assetAdministrationShells: []
-  submodels: []
-  conceptDescriptions: []
+

@@ -27,3 +27,11 @@ repos/*
 Thumbs.db
 .idea/
 .vscode/
+*.swp
+
+# Node / TypeScript artifacts
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+models/dist/

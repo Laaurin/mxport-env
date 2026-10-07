@@ -415,4 +415,8 @@ data:
     ]
 
   model.json: |-
-    {{ toJson .Values.aasModel }}
+{{- if .Values.aasModel }}
+{{ toJson .Values.aasModel | indent 4 }}
+{{- else }}
+{{ .Files.Get (printf "files/models/%s.json" .Values.actor.name) | indent 4 }}
+{{- end }}
