@@ -157,6 +157,8 @@ services:
       KEYCLOAK_REALM: BaSyx
       KEYCLOAK_CLIENT_ID: basyx-web-ui
       ENDPOINT_CONFIG_AVAILABLE: "true"
+      ALLOW_EDITING: "true"
+      ALLOW_UPLOADING: "true"
     networks:
       - basyx-net
     restart: unless-stopped
