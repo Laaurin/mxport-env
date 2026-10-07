@@ -1,18 +1,171 @@
 # ==============================================================================
-# MXPort & BaSyx Dynamic RBAC Multi-Gateway Environment Orchestrator
+# Eclipse BaSyx Dynamic RBAC Standalone Development Environment
 # ==============================================================================
-# Modular Compose Architecture using Compose v2 'include'
+# Single-command startup: docker compose up -d
+# Includes BaSyx AAS Environment, Security Submodel, Keycloak IAM, and AAS Web UI.
+# Pre-configured user: admin / admin (Full READ, WRITE, DELETE permissions)
+# Compatible with Windows (Docker Desktop / WSL2), macOS, and Linux
 # ==============================================================================
 
-include:
-  - path: compose/infrastructure.yml
-  - path: compose/consumer.yml
-  - path: compose/provider.yml
+services:
+  # --------------------------------------------------------------------------
+  # BaSyx MongoDB (Backend for Security Submodel Server)
+  # --------------------------------------------------------------------------
+  basyx-mongo:
+    image: mongo:8
+    container_name: basyx-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongoAdmin
+      MONGO_INITDB_ROOT_PASSWORD: mongoPassword
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --username \"$$MONGO_INITDB_ROOT_USERNAME\" --password \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand({ ping: 1 })\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 10
+    ports:
+      - "27017:27017"
+    volumes:
+      - basyx-mongo-data:/data/db
+    networks:
+      basyx-net:
+        aliases:
+          - mongo
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Keycloak IAM (Realm: BaSyx, Port: 8085)
+  # --------------------------------------------------------------------------
+  keycloak-rbac:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: keycloak-rbac
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+    ports:
+      - "8085:8080"
+    volumes:
+      - ./basyx-rbac/realm:/opt/keycloak/data/import:ro
+    networks:
+      - basyx-net
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000; printf 'GET /health/live HTTP/1.0\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; read s <&3; echo \"$$s\" | grep -q '200'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # BaSyx Security Submodel Server (Dynamic RBAC Policy Backend, Port: 8086)
+  # --------------------------------------------------------------------------
+  security-submodel:
+    image: eclipsebasyx/submodel-repository:2.0.0-SNAPSHOT
+    container_name: security-submodel
+    depends_on:
+      basyx-mongo:
+        condition: service_healthy
+      keycloak-rbac:
+        condition: service_healthy
+    ports:
+      - "8086:8081"
+    volumes:
+      - ./basyx-rbac/security-sm.properties:/application/application.properties:ro
+      - ./basyx-rbac/rules/sec_sm_rbac_rules.json:/application/rbac_rules.json:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      basyx-net:
+        aliases:
+          - security-submodel
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # Security Submodel & User Initializer (Idempotent Setup)
+  # --------------------------------------------------------------------------
+  security-sm-setup:
+    image: curlimages/curl:8.5.0
+    container_name: security-sm-setup
+    depends_on:
+      security-submodel:
+        condition: service_healthy
+      keycloak-rbac:
+        condition: service_healthy
+    volumes:
+      - ./basyx-rbac/setup-entrypoint.sh:/setup.sh:ro
+      - ./basyx-rbac/initial-submodel.json:/initial-submodel.json:ro
+    entrypoint: ["/bin/sh", "-c", "tr -d '\\r' < /setup.sh | sh"]
+    networks:
+      - basyx-net
+    restart: "no"
+
+  # --------------------------------------------------------------------------
+  # BaSyx AAS Environment (With Dynamic RBAC Feature, Port: 8081)
+  # --------------------------------------------------------------------------
+  basyx-aas:
+    image: eclipsebasyx/aas-environment:2.0.0-SNAPSHOT
+    container_name: basyx-aas
+    depends_on:
+      security-submodel:
+        condition: service_healthy
+      security-sm-setup:
+        condition: service_completed_successfully
+      keycloak-rbac:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./basyx-rbac/aas-env.properties:/application/application.properties:ro
+      - ./basyx-rbac/rules/aas_env_rbac_rules.json:/application/rbac_rules.json:ro
+      - ./basyx-rbac/aas:/application/aas:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      basyx-net:
+        aliases:
+          - basyx-aas
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # BaSyx AAS Web UI (Vue.js SPA Viewer & Editor, Port: 3000)
+  # --------------------------------------------------------------------------
+  aas-gui:
+    image: eclipsebasyx/aas-gui:SNAPSHOT
+    container_name: basyx-aas-gui
+    depends_on:
+      basyx-aas:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      AAS_REPO_PATH: http://localhost:8081/shells
+      SUBMODEL_REPO_PATH: http://localhost:8081/submodels
+      CD_REPO_PATH: http://localhost:8081/concept-descriptions
+      KEYCLOAK_ACTIVE: "true"
+      KEYCLOAK_URL: http://localhost:8085
+      KEYCLOAK_REALM: BaSyx
+      KEYCLOAK_CLIENT_ID: basyx-web-ui
+      ENDPOINT_CONFIG_AVAILABLE: "true"
+    networks:
+      - basyx-net
+    restart: unless-stopped
 
 networks:
-  consumer-net:
+  basyx-net:
     driver: bridge
-  fx-net:
-    driver: bridge
-  provider-net:
-    driver: bridge
+
+volumes:
+  basyx-mongo-data:
