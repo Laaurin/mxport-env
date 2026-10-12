@@ -1,0 +1,60 @@
+{
+  "assetAdministrationShells": [
+    {
+      "idShort": "CustomerAeroEngineOEM",
+      "id": "urn:dataspace:f:aas:customer-profile-001",
+      "assetInformation": {
+        "assetKind": "Instance",
+        "globalAssetId": "urn:dataspace:f:asset:customer-profile-001"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "urn:dataspace:f:sm:nameplate"
+            }
+          ]
+        }
+      ],
+      "modelType": "AssetAdministrationShell"
+    }
+  ],
+  "submodels": [
+    {
+      "idShort": "Nameplate",
+      "id": "urn:dataspace:f:sm:nameplate",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/zvei/nameplate/1/0/Nameplate"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "idShort": "CustomerName",
+          "valueType": "xs:string",
+          "value": "AeroEngine Global Corp",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "ProcurementProject",
+          "valueType": "xs:string",
+          "value": "NextGen Turbofan Engine X200",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "AuthorizedCustomerFor",
+          "valueType": "xs:string",
+          "value": "urn:dataspace:e:aas:produced-part-001",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    }
+  ]
+}

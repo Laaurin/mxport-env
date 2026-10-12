@@ -1,0 +1,19 @@
+actor:
+  name: "actor-a"
+  displayName: "Actor A - Servo Motor Supplier"
+
+gateway:
+  allowedProviders: []
+
+ingress:
+  enabled: true
+  host: "actor-a.localhost"
+
+secsm:
+  enabled: false
+
+sts:
+  enabled: false
+
+rbac:
+  enabled: false

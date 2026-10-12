@@ -1,7 +1,7 @@
 {
-  "id": "oem",
-  "realm": "oem",
-  "displayName": "OEM Vehicle Manufacturer",
+  "id": "actor-d",
+  "realm": "actor-d",
+  "displayName": "Actor D - Machine Manufacturer",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
@@ -9,19 +9,23 @@
   "roles": {
     "realm": [
       {
-        "name": "partner-oem",
-        "description": "OEM Partner Role"
+        "name": "partner-d",
+        "description": "Actor D Partner Role"
+      },
+      {
+        "name": "admin",
+        "description": "Actor D Admin Role"
       }
     ]
   },
   "clients": [
     {
-      "clientId": "oem-client",
-      "name": "OEM Client",
+      "clientId": "actor-d-client",
+      "name": "Actor D Client",
       "enabled": true,
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "oem-secret-12345",
+      "secret": "actor-d-secret-12345",
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": true,
@@ -48,23 +52,23 @@
   ],
   "users": [
     {
-      "username": "service-account-oem-client",
+      "username": "service-account-actor-d-client",
       "enabled": true,
-      "serviceAccountClientId": "oem-client",
-      "realmRoles": ["partner-oem"]
+      "serviceAccountClientId": "actor-d-client",
+      "realmRoles": ["partner-d", "admin"]
     },
     {
-      "username": "oem-user",
+      "username": "actor-d-user",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "OEM",
+      "firstName": "ActorD",
       "lastName": "User",
-      "email": "oem@dataspace.local",
-      "realmRoles": ["partner-oem"],
+      "email": "actord@dataspace.local",
+      "realmRoles": ["partner-d"],
       "credentials": [
         {
           "type": "password",
-          "value": "oem-pass",
+          "value": "actord-pass",
           "temporary": false
         }
       ]

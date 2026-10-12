@@ -16,21 +16,6 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Release.Name }}-sts
-  labels:
-    app: {{ .Release.Name }}-sts
-spec:
-  type: ClusterIP
-  ports:
-    - port: 9050
-      targetPort: http
-      name: http
-  selector:
-    app: {{ .Release.Name }}-sts
----
-apiVersion: v1
-kind: Service
-metadata:
   name: {{ .Release.Name }}-aas
   labels:
     app: {{ .Release.Name }}-aas
@@ -42,6 +27,24 @@ spec:
       name: http
   selector:
     app: {{ .Release.Name }}-aas
+{{- if .Values.sts.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-sts
+  labels:
+    app: {{ .Release.Name }}-sts
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9050
+      targetPort: http
+      name: http
+  selector:
+    app: {{ .Release.Name }}-sts
+{{- end }}
+{{- if .Values.secsm.enabled }}
 ---
 apiVersion: v1
 kind: Service
@@ -57,3 +60,4 @@ spec:
       name: http
   selector:
     app: {{ .Release.Name }}-secsm
+{{- end }}

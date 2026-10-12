@@ -2,15 +2,25 @@ actor:
   name: "actor"
   displayName: "Dataspace Actor"
 
-gateway:
-  allowedProviders: []
+aas:
+  enabled: true
+
+secsm:
+  enabled: false
 
 sts:
+  enabled: false
   signingKey: ""
   trustedIssuers: []
+
+rbac:
+  enabled: false
+  rules: []
+
+gateway:
+  enabled: true
+  allowedProviders: []
 
 ingress:
   enabled: true
   host: "actor.localhost"
-
-

@@ -1,0 +1,133 @@
+{
+  "assetAdministrationShells": [
+    {
+      "idShort": "TurbineBladeProductAAS",
+      "id": "urn:dataspace:e:aas:produced-part-001",
+      "assetInformation": {
+        "assetKind": "Instance",
+        "globalAssetId": "urn:dataspace:e:asset:produced-part-001"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "urn:dataspace:e:sm:nameplate"
+            }
+          ]
+        },
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "urn:dataspace:e:sm:timeseries"
+            }
+          ]
+        }
+      ],
+      "modelType": "AssetAdministrationShell"
+    }
+  ],
+  "submodels": [
+    {
+      "idShort": "Nameplate",
+      "id": "urn:dataspace:e:sm:nameplate",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/zvei/nameplate/1/0/Nameplate"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "idShort": "ManufacturerName",
+          "valueType": "xs:string",
+          "value": "PrecisionAero Components GmbH",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "ManufacturerProductDesignation",
+          "valueType": "xs:string",
+          "value": "HighPressure Turbine Blade Ti-6Al-4V",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "PartSerialNumber",
+          "valueType": "xs:string",
+          "value": "HPTB-2026-0042",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "ManufacturingDate",
+          "valueType": "xs:string",
+          "value": "2026-10-12",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "ProducingMachineRef",
+          "valueType": "xs:string",
+          "value": "urn:dataspace:d:aas:machine-type-001",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    },
+    {
+      "idShort": "TimeSeries",
+      "id": "urn:dataspace:e:sm:timeseries",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/TimeSeries/TimeSeriesData/1/0"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "idShort": "ProcessRecordCount",
+          "valueType": "xs:integer",
+          "value": "3600",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "AverageMillingTemperatureCelsius",
+          "valueType": "xs:double",
+          "value": "142.8",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "PeakVibrationRMS",
+          "valueType": "xs:double",
+          "value": "0.45",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "SurfaceRoughnessRaMicron",
+          "valueType": "xs:double",
+          "value": "0.38",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "SpindleLoadPercent",
+          "valueType": "xs:double",
+          "value": "68.4",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "TimeSeriesStorageUrl",
+          "valueType": "xs:string",
+          "value": "https://influxdb.internal.e/query?part=HPTB-2026-0042",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    }
+  ]
+}

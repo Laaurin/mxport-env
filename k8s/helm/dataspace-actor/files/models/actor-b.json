@@ -1,0 +1,115 @@
+{
+  "assetAdministrationShells": [
+    {
+      "idShort": "IndustrialGearboxAAS",
+      "id": "urn:dataspace:b:aas:gearbox-001",
+      "assetInformation": {
+        "assetKind": "Instance",
+        "globalAssetId": "urn:dataspace:b:asset:gearbox-001"
+      },
+      "submodels": [
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "urn:dataspace:b:sm:nameplate"
+            }
+          ]
+        },
+        {
+          "type": "ModelReference",
+          "keys": [
+            {
+              "type": "Submodel",
+              "value": "urn:dataspace:b:sm:technical-data"
+            }
+          ]
+        }
+      ],
+      "modelType": "AssetAdministrationShell"
+    }
+  ],
+  "submodels": [
+    {
+      "idShort": "Nameplate",
+      "id": "urn:dataspace:b:sm:nameplate",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/zvei/nameplate/1/0/Nameplate"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "idShort": "ManufacturerName",
+          "valueType": "xs:string",
+          "value": "PrecisionGear AG",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "ManufacturerProductDesignation",
+          "valueType": "xs:string",
+          "value": "Planetary Precision Gear PG-50",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "SerialNumber",
+          "valueType": "xs:string",
+          "value": "PG-50-4821",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "YearOfConstruction",
+          "valueType": "xs:string",
+          "value": "2026",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    },
+    {
+      "idShort": "TechnicalData",
+      "id": "urn:dataspace:b:sm:technical-data",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/idta/TechnicalData/TechnicalData/1/1"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "idShort": "GearRatio",
+          "valueType": "xs:string",
+          "value": "10:1",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "MaxOutputTorqueNm",
+          "valueType": "xs:double",
+          "value": "450.0",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "TorsionalBacklashArcmin",
+          "valueType": "xs:double",
+          "value": "1.2",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "EfficiencyPercent",
+          "valueType": "xs:double",
+          "value": "97.5",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    }
+  ]
+}

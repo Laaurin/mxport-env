@@ -1,7 +1,7 @@
 {
-  "id": "tier2",
-  "realm": "tier2",
-  "displayName": "Tier 2 Module Supplier",
+  "id": "actor-e",
+  "realm": "actor-e",
+  "displayName": "Actor E - Production Plant",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
@@ -9,19 +9,27 @@
   "roles": {
     "realm": [
       {
-        "name": "partner-tier2",
-        "description": "Tier 2 Partner Role"
+        "name": "partner-e",
+        "description": "Actor E Partner Role"
+      },
+      {
+        "name": "customer-d",
+        "description": "Authorized Customer of Actor D"
+      },
+      {
+        "name": "admin",
+        "description": "Actor E Admin Role"
       }
     ]
   },
   "clients": [
     {
-      "clientId": "tier2-client",
-      "name": "Tier 2 Client",
+      "clientId": "actor-e-client",
+      "name": "Actor E Client",
       "enabled": true,
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "tier2-secret-12345",
+      "secret": "actor-e-secret-12345",
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": true,
@@ -48,23 +56,23 @@
   ],
   "users": [
     {
-      "username": "service-account-tier2-client",
+      "username": "service-account-actor-e-client",
       "enabled": true,
-      "serviceAccountClientId": "tier2-client",
-      "realmRoles": ["partner-tier2"]
+      "serviceAccountClientId": "actor-e-client",
+      "realmRoles": ["partner-e", "customer-d", "admin"]
     },
     {
-      "username": "tier2-user",
+      "username": "actor-e-user",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Tier2",
+      "firstName": "ActorE",
       "lastName": "User",
-      "email": "tier2@dataspace.local",
-      "realmRoles": ["partner-tier2"],
+      "email": "actore@dataspace.local",
+      "realmRoles": ["partner-e", "customer-d"],
       "credentials": [
         {
           "type": "password",
-          "value": "tier2-pass",
+          "value": "actore-pass",
           "temporary": false
         }
       ]

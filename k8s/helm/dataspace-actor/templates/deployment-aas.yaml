@@ -21,6 +21,7 @@ spec:
         - key: "node.kubernetes.io/disk-pressure"
           operator: "Exists"
           effect: "NoExecute"
+      {{- if .Values.secsm.enabled }}
       initContainers:
         - name: init-secsm
           image: curlimages/curl:8.5.0
@@ -53,6 +54,7 @@ spec:
           volumeMounts:
             - name: secsm-config
               mountPath: /config
+      {{- end }}
       containers:
         - name: aas
           image: eclipsebasyx/aas-environment:2.0.0-SNAPSHOT
@@ -67,9 +69,11 @@ spec:
             - name: aas-config
               mountPath: /application/application.properties
               subPath: application.properties
+            {{- if .Values.rbac.enabled }}
             - name: aas-config
               mountPath: /application/rbac_rules.json
               subPath: rbac_rules.json
+            {{- end }}
             - name: aas-config
               mountPath: /application/aas/model.json
               subPath: model.json
@@ -98,6 +102,8 @@ spec:
         - name: aas-config
           configMap:
             name: {{ .Release.Name }}-aas-config
+        {{- if .Values.secsm.enabled }}
         - name: secsm-config
           configMap:
             name: {{ .Release.Name }}-secsm-config
+        {{- end }}

@@ -1,0 +1,19 @@
+actor:
+  name: "actor-c"
+  displayName: "Actor C - Vibration Sensor Supplier"
+
+gateway:
+  allowedProviders: []
+
+ingress:
+  enabled: true
+  host: "actor-c.localhost"
+
+secsm:
+  enabled: false
+
+sts:
+  enabled: false
+
+rbac:
+  enabled: false

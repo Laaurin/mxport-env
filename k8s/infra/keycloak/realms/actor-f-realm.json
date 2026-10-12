@@ -1,7 +1,7 @@
 {
-  "id": "tier3",
-  "realm": "tier3",
-  "displayName": "Tier 3 Cell Supplier",
+  "id": "actor-f",
+  "realm": "actor-f",
+  "displayName": "Actor F - Customer of E",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
@@ -9,19 +9,27 @@
   "roles": {
     "realm": [
       {
-        "name": "partner-tier3",
-        "description": "Tier 3 Partner Role"
+        "name": "partner-f",
+        "description": "Actor F Partner Role"
+      },
+      {
+        "name": "customer-e",
+        "description": "Authorized Customer of Actor E"
+      },
+      {
+        "name": "admin",
+        "description": "Actor F Admin Role"
       }
     ]
   },
   "clients": [
     {
-      "clientId": "tier3-client",
-      "name": "Tier 3 Client",
+      "clientId": "actor-f-client",
+      "name": "Actor F Client",
       "enabled": true,
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "tier3-secret-12345",
+      "secret": "actor-f-secret-12345",
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": true,
@@ -48,23 +56,23 @@
   ],
   "users": [
     {
-      "username": "service-account-tier3-client",
+      "username": "service-account-actor-f-client",
       "enabled": true,
-      "serviceAccountClientId": "tier3-client",
-      "realmRoles": ["partner-tier3"]
+      "serviceAccountClientId": "actor-f-client",
+      "realmRoles": ["partner-f", "customer-e", "admin"]
     },
     {
-      "username": "tier3-user",
+      "username": "actor-f-user",
       "enabled": true,
       "emailVerified": true,
-      "firstName": "Tier3",
+      "firstName": "ActorF",
       "lastName": "User",
-      "email": "tier3@dataspace.local",
-      "realmRoles": ["partner-tier3"],
+      "email": "actorf@dataspace.local",
+      "realmRoles": ["partner-f", "customer-e"],
       "credentials": [
         {
           "type": "password",
-          "value": "tier3-pass",
+          "value": "actorf-pass",
           "temporary": false
         }
       ]

@@ -1,11 +1,11 @@
 {
   "assetAdministrationShells": [
     {
-      "idShort": "BatteryCellAAS",
-      "id": "urn:dataspace:tier3:aas:battery-cell-001",
+      "idShort": "VibrationSensorAAS",
+      "id": "urn:dataspace:c:aas:sensor-001",
       "assetInformation": {
         "assetKind": "Instance",
-        "globalAssetId": "urn:dataspace:tier3:asset:battery-cell-001"
+        "globalAssetId": "urn:dataspace:c:asset:sensor-001"
       },
       "submodels": [
         {
@@ -13,7 +13,7 @@
           "keys": [
             {
               "type": "Submodel",
-              "value": "urn:dataspace:tier3:sm:cell-tech-data"
+              "value": "urn:dataspace:c:sm:nameplate"
             }
           ]
         },
@@ -22,7 +22,7 @@
           "keys": [
             {
               "type": "Submodel",
-              "value": "urn:dataspace:tier3:sm:cell-pcf"
+              "value": "urn:dataspace:c:sm:technical-data"
             }
           ]
         }
@@ -32,8 +32,48 @@
   ],
   "submodels": [
     {
+      "idShort": "Nameplate",
+      "id": "urn:dataspace:c:sm:nameplate",
+      "semanticId": {
+        "type": "ExternalReference",
+        "keys": [
+          {
+            "type": "GlobalReference",
+            "value": "https://admin-shell.io/zvei/nameplate/1/0/Nameplate"
+          }
+        ]
+      },
+      "submodelElements": [
+        {
+          "idShort": "ManufacturerName",
+          "valueType": "xs:string",
+          "value": "SensX Automation Solutions",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "ManufacturerProductDesignation",
+          "valueType": "xs:string",
+          "value": "Triaxial Vibration Sensor VIB-3X",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "SerialNumber",
+          "valueType": "xs:string",
+          "value": "SX-VIB-3012",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "YearOfConstruction",
+          "valueType": "xs:string",
+          "value": "2026",
+          "modelType": "Property"
+        }
+      ],
+      "modelType": "Submodel"
+    },
+    {
       "idShort": "TechnicalData",
-      "id": "urn:dataspace:tier3:sm:cell-tech-data",
+      "id": "urn:dataspace:c:sm:technical-data",
       "semanticId": {
         "type": "ExternalReference",
         "keys": [
@@ -45,49 +85,21 @@
       },
       "submodelElements": [
         {
-          "idShort": "Chemistry",
-          "valueType": "xs:string",
-          "value": "NMC 811",
-          "modelType": "Property"
-        },
-        {
-          "idShort": "NominalVoltageV",
+          "idShort": "SamplingRateKHz",
           "valueType": "xs:double",
-          "value": "3.7",
+          "value": "25.6",
           "modelType": "Property"
         },
         {
-          "idShort": "CapacityAh",
+          "idShort": "MeasuringRangeG",
           "valueType": "xs:double",
           "value": "50.0",
           "modelType": "Property"
-        }
-      ],
-      "modelType": "Submodel"
-    },
-    {
-      "idShort": "CarbonFootprint",
-      "id": "urn:dataspace:tier3:sm:cell-pcf",
-      "semanticId": {
-        "type": "ExternalReference",
-        "keys": [
-          {
-            "type": "GlobalReference",
-            "value": "https://admin-shell.io/idta/CarbonFootprint/ProductCarbonFootprint/0/9"
-          }
-        ]
-      },
-      "submodelElements": [
-        {
-          "idShort": "ProductCarbonFootprintKgCO2e",
-          "valueType": "xs:double",
-          "value": "18.5",
-          "modelType": "Property"
         },
         {
-          "idShort": "PrimaryDataSharePercent",
-          "valueType": "xs:double",
-          "value": "85.0",
+          "idShort": "Interface",
+          "valueType": "xs:string",
+          "value": "IO-Link",
           "modelType": "Property"
         }
       ],

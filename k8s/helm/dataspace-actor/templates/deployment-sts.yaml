@@ -1,3 +1,4 @@
+{{- if .Values.sts.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -58,15 +59,15 @@ spec:
             httpGet:
               path: /sts/jwks
               port: 9050
-            initialDelaySeconds: 30
-            periodSeconds: 10
+            initialDelaySeconds: 15
+            periodSeconds: 5
             failureThreshold: 10
           livenessProbe:
             httpGet:
               path: /sts/jwks
               port: 9050
-            initialDelaySeconds: 45
-            periodSeconds: 15
+            initialDelaySeconds: 20
+            periodSeconds: 10
             failureThreshold: 10
       volumes:
         - name: sts-config
@@ -75,3 +76,4 @@ spec:
         - name: sts-key
           secret:
             secretName: {{ .Release.Name }}-sts-key
+{{- end }}

@@ -1,0 +1,96 @@
+actor:
+  name: "actor-d"
+  displayName: "Actor D - Machine Manufacturer"
+
+gateway:
+  allowedProviders:
+    - "actor-a-gateway"
+    - "actor-b-gateway"
+    - "actor-c-gateway"
+
+ingress:
+  enabled: true
+  host: "actor-d.localhost"
+
+secsm:
+  enabled: true
+
+sts:
+  enabled: true
+  signingKey: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCl+n1WkQZRTHKJ
+    pFvLzkUB4c6MYKto6YaLUbEsIXSkK9YJus0RZI3Gp0kK8M0peT8+LuMXV4Kc59hB
+    YwHzpwhugi2AQq8ED7Majzlu9u5zGKDotCSog3rde2a+sdUrnc0jygx2Wz3JLgFp
+    u9H3c0ELmulYzwXRjAdc4I+DotVK0dvO1frMWl98Q6L8Il5nupMKswGXCe/NQwkQ
+    VnytsPpRklxObAh4D6WAbdeBP8tsOQaJ4KwHWUvB7WFnFRp8TJaURSUhZTpNIgl6
+    ymmV/pm3mWuDS/jYrpfiDqiL77+8uFb57FMIiXMmGUOCNf0Imw+vcigwr0ymuUiU
+    FsapTPZ3AgMBAAECggEAO6yYJKgGj/M+2OrdUCSsndUcKE9XQWR4iZ2I6BdtMttJ
+    3HyrXv36lTou4j6aXLdpfAdqgUlmvdgDYdrhaEMdHnIyPsN63ihw2fM1kIY6S+pG
+    a/PcnDONWJUV5yjTvhdBmoT5vxHl4G9odaXgAyoOcEg1bkccTe8c9JEOOCMysW+2
+    ZwMwem/aBJFb8IBRsoQkdWsKQwebTDX5YzxKfi5WXsJzl8twctsptO+otZ+CscQR
+    CTohKi2CiQAOFbyx/URsjxyWhf+7YBZqMSkKecQzBN7x2+HciPHF6e4Id0F6v7JG
+    IesN65R6KJQ+uZF+kE7eVDz6UhGbb/Z3XE1saZPyXQKBgQDgeFTHuLCQwvvaGN0T
+    AC9i2esSCmy5AzxAg7xIH7ZGtLpB1JC4RiVRWtYuw/hP4y6uTfLtp+aOp8auccQp
+    SoVKoxGl73UKXb7Vt0E98Q2v7ULvNTz78N5D3Rbgm82p3Irck8bWTV7+X5I5LZ0z
+    djk/H5GcDTsgZYbsQsmorbc5jQKBgQC9St99Nfs70TpDdEeA3FX08c8gUJfokhH6
+    ecyMyClnLwlOUHj9hajO7ZCDlZqz779JswgJlgJJWAe70hm/NjIp98MI3zNatL9Z
+    KjBI44fkSWEhaDfpKTdPnfL9pQaivCI5YILT60akX4wa/lhIN/Sr8PotOUmIwZNI
+    Ai0CcM+1EwKBgDWO4IOq4I4Zx+fY6N7Au421ey4ZyKk4SWcHR6RZ1K74LjzI0CL3
+    sa3Ao7wSzCubhCbYuG7WEd/VzkUPJgPIIReW4v4ZrW5kwcTSbcGuw1pHnSHgLQXc
+    CdxdYzkCU8cEtSk+JUI6wcCl4wi7hneh7LTP/nkiewoWz2ON5/nUQRR9AoGBALb8
+    vFOUbYwD1OkEbWL6nPWvFGXOwysGme6i88RccvnWlI5qaKvcG7X+Hae2ZdjwOOEL
+    +wcZRpiUStWcY1tfDttXMelPq5tSA3A0wnyTx/g9n3HmB7aUK24B6LaeY23JpOQG
+    kjI+zQl1fEFUAw+9V/8ncxFowdc8Gh6QS+aCG6iVAoGBAJCeKwCkQAMWzGQbF7zl
+    H4h5afrlsRHpbVCQNHLMkUESYgc/lguzDZ7oUGWp/I0ttGlQv0//UqOOv+IZ0Cl3
+    Y8B2zaS2fImX+mMhAFhpsQ/zphrX6Xe6EZSrrWUsLBr366qXlTrJ+jJPot/PKE/m
+    qghT16dthOslBIAxtvWF0g2B
+    -----END PRIVATE KEY-----
+  trustedIssuers:
+    - name: actor-e-keycloak
+      issuer: http://keycloak:8080/realms/actor-e
+      jwksUri: "http://keycloak:8080/realms/actor-e/protocol/openid-connect/certs"
+    - name: actor-e-keycloak-host
+      issuer: http://keycloak.localhost/realms/actor-e
+      jwksUri: "http://keycloak:8080/realms/actor-e/protocol/openid-connect/certs"
+
+rbac:
+  enabled: true
+  rules:
+    - role: "admin"
+      action: ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"]
+      targetInformation:
+        "@type": "concept-description"
+        conceptDescriptionIds: "*"
+    - role: "admin"
+      action: ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"]
+      targetInformation:
+        "@type": "aas"
+        aasIds: "*"
+    - role: "admin"
+      action: ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"]
+      targetInformation:
+        "@type": "submodel"
+        submodelIds: "*"
+        submodelElementIdShortPaths: "*"
+    - role: "admin"
+      action: ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"]
+      targetInformation:
+        "@type": "aas-environment"
+        aasIds: "*"
+        submodelIds: "*"
+        conceptDescriptionIds: "*"
+    - role: "customer-d"
+      action: ["READ"]
+      targetInformation:
+        "@type": "aas"
+        aasIds:
+          - "urn:dataspace:d:aas:machine-type-001"
+    - role: "customer-d"
+      action: ["READ"]
+      targetInformation:
+        "@type": "submodel"
+        submodelIds:
+          - "urn:dataspace:d:sm:nameplate"
+          - "urn:dataspace:d:sm:technical-data"
+          - "urn:dataspace:d:sm:machine-simulation"

@@ -1,6 +1,6 @@
 # ==============================================================================
 # deploy-all.ps1
-# Windows PowerShell Script to deploy infra + 4 actors via Helm
+# Windows PowerShell Script to deploy infra + 6 actors via Helm
 # ==============================================================================
 $ErrorActionPreference = "Stop"
 
@@ -11,6 +11,11 @@ $Namespace = "dataspace"
 Write-Host ">>> Creating namespace '$Namespace'..." -ForegroundColor Cyan
 kubectl create namespace $Namespace --dry-run=client -o yaml | kubectl apply -f -
 
+Write-Host ">>> Configuring Keycloak realms ConfigMap..." -ForegroundColor Cyan
+kubectl create configmap keycloak-realms `
+  --from-file="$K8sDir\infra\keycloak\realms" `
+  -n $Namespace --dry-run=client -o yaml | kubectl apply -f -
+
 Write-Host ">>> 1. Deploying/Upgrading Shared Infrastructure (Keycloak + MongoDB)..." -ForegroundColor Cyan
 helm upgrade --install infra "$K8sDir\helm\dataspace-infra" -n $Namespace
 
@@ -18,12 +23,12 @@ Write-Host ">>> Waiting for Keycloak & MongoDB to become ready..." -ForegroundCo
 kubectl wait --namespace $Namespace --for=condition=ready pod -l app=keycloak --timeout=180s
 kubectl wait --namespace $Namespace --for=condition=ready pod -l app=mongodb --timeout=120s
 
-Write-Host ">>> 2. Deploying/Upgrading 4 Dataspace Actors..." -ForegroundColor Cyan
-$actors = @("oem", "tier1", "tier2", "tier3")
+Write-Host ">>> 2. Deploying/Upgrading 6 Dataspace Actors..." -ForegroundColor Cyan
+$actors = @("actor-a", "actor-b", "actor-c", "actor-d", "actor-e", "actor-f")
 foreach ($actor in $actors) {
     Write-Host "  --> Deploying $actor..." -ForegroundColor Gray
     helm upgrade --install $actor "$K8sDir\helm\dataspace-actor" `
-      -f "$K8sDir\values\actor-$actor.yaml" `
+      -f "$K8sDir\values\$actor.yaml" `
       -n $Namespace
 }
 
@@ -41,9 +46,11 @@ Write-Host "====================================================================
 Write-Host " Deployment Complete!" -ForegroundColor Green
 Write-Host " Ingress Host Endpoints (on localhost:80 via Traefik):" -ForegroundColor White
 Write-Host "   - Keycloak: http://keycloak.localhost" -ForegroundColor White
-Write-Host "   - OEM:      http://oem.localhost" -ForegroundColor White
-Write-Host "   - Tier 1:   http://tier1.localhost" -ForegroundColor White
-Write-Host "   - Tier 2:   http://tier2.localhost" -ForegroundColor White
-Write-Host "   - Tier 3:   http://tier3.localhost" -ForegroundColor White
-Write-Host " Run tests with: & `"$K8sDir\tests\verify_4actor_chain.ps1`"" -ForegroundColor Yellow
+Write-Host "   - Actor A:  http://actor-a.localhost (Servo Motor Supplier - Public AAS Repo)" -ForegroundColor White
+Write-Host "   - Actor B:  http://actor-b.localhost (Gearbox Supplier - Public AAS Repo)" -ForegroundColor White
+Write-Host "   - Actor C:  http://actor-c.localhost (Sensor Supplier - Public AAS Repo)" -ForegroundColor White
+Write-Host "   - Actor D:  http://actor-d.localhost (Machine Manufacturer - Protected Simulation SM)" -ForegroundColor White
+Write-Host "   - Actor E:  http://actor-e.localhost (Production Plant - Protected TimeSeries SM)" -ForegroundColor White
+Write-Host "   - Actor F:  http://actor-f.localhost (Customer of Actor E)" -ForegroundColor White
+Write-Host " Run tests with: & `"$K8sDir\tests\verify_6actor_chain.ps1`"" -ForegroundColor Yellow
 Write-Host "======================================================================" -ForegroundColor Green

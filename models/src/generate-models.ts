@@ -3,8 +3,10 @@ import * as path from 'path';
 import { types, jsonization, verification } from '@aas-core-works/aas-core3.0-typescript';
 
 // Standard IDTA Semantic ID Constants
+const IDTA_NAMEPLATE_SEMANTIC_ID = 'https://admin-shell.io/zvei/nameplate/1/0/Nameplate';
 const IDTA_TECHNICAL_DATA_SEMANTIC_ID = 'https://admin-shell.io/idta/TechnicalData/TechnicalData/1/1';
-const IDTA_PCF_SEMANTIC_ID = 'https://admin-shell.io/idta/CarbonFootprint/ProductCarbonFootprint/0/9';
+const IDTA_SIMULATION_SEMANTIC_ID = 'https://admin-shell.io/idta/SimulationModel/0/1';
+const IDTA_TIMESERIES_SEMANTIC_ID = 'https://admin-shell.io/idta/TimeSeries/TimeSeriesData/1/0';
 
 function createSemanticReference(id: string): types.Reference {
   const key = new types.Key(types.KeyTypes.GlobalReference, id);
@@ -28,20 +30,31 @@ function createProperty(
 }
 
 // -----------------------------------------------------------------------------
-// 1. Tier 3: Battery Cell Supplier
+// 1. Akteur A: Servo Motor Supplier (Public AAS Repo)
 // -----------------------------------------------------------------------------
-export function buildTier3Environment(): types.Environment {
-  const aasId = 'urn:dataspace:tier3:aas:battery-cell-001';
-  const assetId = 'urn:dataspace:tier3:asset:battery-cell-001';
-  const smTechId = 'urn:dataspace:tier3:sm:cell-tech-data';
-  const smPcfId = 'urn:dataspace:tier3:sm:cell-pcf';
+export function buildActorAEnvironment(): types.Environment {
+  const aasId = 'urn:dataspace:a:aas:servo-motor-001';
+  const assetId = 'urn:dataspace:a:asset:servo-motor-001';
+  const smNameplateId = 'urn:dataspace:a:sm:nameplate';
+  const smTechId = 'urn:dataspace:a:sm:technical-data';
 
   const assetInfo = new types.AssetInformation(types.AssetKind.Instance, assetId);
   const shell = new types.AssetAdministrationShell(aasId, assetInfo);
-  shell.idShort = 'BatteryCellAAS';
+  shell.idShort = 'ServoMotorAAS';
   shell.submodels = [
-    createModelReference(types.KeyTypes.Submodel, smTechId),
-    createModelReference(types.KeyTypes.Submodel, smPcfId)
+    createModelReference(types.KeyTypes.Submodel, smNameplateId),
+    createModelReference(types.KeyTypes.Submodel, smTechId)
+  ];
+
+  // Nameplate Submodel
+  const smNameplate = new types.Submodel(smNameplateId);
+  smNameplate.idShort = 'Nameplate';
+  smNameplate.semanticId = createSemanticReference(IDTA_NAMEPLATE_SEMANTIC_ID);
+  smNameplate.submodelElements = [
+    createProperty('ManufacturerName', types.DataTypeDefXsd.String, 'MotorTech Antriebssysteme GmbH'),
+    createProperty('ManufacturerProductDesignation', types.DataTypeDefXsd.String, 'HighTorque ServoDrive S7'),
+    createProperty('SerialNumber', types.DataTypeDefXsd.String, 'MT-S7-99214'),
+    createProperty('YearOfConstruction', types.DataTypeDefXsd.String, '2026')
   ];
 
   // Technical Data Submodel
@@ -49,41 +62,44 @@ export function buildTier3Environment(): types.Environment {
   smTech.idShort = 'TechnicalData';
   smTech.semanticId = createSemanticReference(IDTA_TECHNICAL_DATA_SEMANTIC_ID);
   smTech.submodelElements = [
-    createProperty('Chemistry', types.DataTypeDefXsd.String, 'NMC 811'),
-    createProperty('NominalVoltageV', types.DataTypeDefXsd.Double, '3.7'),
-    createProperty('CapacityAh', types.DataTypeDefXsd.Double, '50.0')
-  ];
-
-  // PCF Submodel
-  const smPcf = new types.Submodel(smPcfId);
-  smPcf.idShort = 'CarbonFootprint';
-  smPcf.semanticId = createSemanticReference(IDTA_PCF_SEMANTIC_ID);
-  smPcf.submodelElements = [
-    createProperty('ProductCarbonFootprintKgCO2e', types.DataTypeDefXsd.Double, '18.5'),
-    createProperty('PrimaryDataSharePercent', types.DataTypeDefXsd.Double, '85.0')
+    createProperty('NominalPowerKW', types.DataTypeDefXsd.Double, '15.0'),
+    createProperty('MaxTorqueNm', types.DataTypeDefXsd.Double, '75.0'),
+    createProperty('RatedSpeedRPM', types.DataTypeDefXsd.Integer, '3000'),
+    createProperty('EfficiencyClass', types.DataTypeDefXsd.String, 'IE4')
   ];
 
   const env = new types.Environment();
   env.assetAdministrationShells = [shell];
-  env.submodels = [smTech, smPcf];
+  env.submodels = [smNameplate, smTech];
   return env;
 }
 
 // -----------------------------------------------------------------------------
-// 2. Tier 2: Battery Module Supplier
+// 2. Akteur B: Industrial Gearbox Supplier (Public AAS Repo)
 // -----------------------------------------------------------------------------
-export function buildTier2Environment(): types.Environment {
-  const aasId = 'urn:dataspace:tier2:aas:battery-module-001';
-  const assetId = 'urn:dataspace:tier2:asset:battery-module-001';
-  const smTechId = 'urn:dataspace:tier2:sm:module-tech-data';
-  const smPcfId = 'urn:dataspace:tier2:sm:module-pcf';
+export function buildActorBEnvironment(): types.Environment {
+  const aasId = 'urn:dataspace:b:aas:gearbox-001';
+  const assetId = 'urn:dataspace:b:asset:gearbox-001';
+  const smNameplateId = 'urn:dataspace:b:sm:nameplate';
+  const smTechId = 'urn:dataspace:b:sm:technical-data';
 
   const assetInfo = new types.AssetInformation(types.AssetKind.Instance, assetId);
   const shell = new types.AssetAdministrationShell(aasId, assetInfo);
-  shell.idShort = 'BatteryModuleAAS';
+  shell.idShort = 'IndustrialGearboxAAS';
   shell.submodels = [
-    createModelReference(types.KeyTypes.Submodel, smTechId),
-    createModelReference(types.KeyTypes.Submodel, smPcfId)
+    createModelReference(types.KeyTypes.Submodel, smNameplateId),
+    createModelReference(types.KeyTypes.Submodel, smTechId)
+  ];
+
+  // Nameplate Submodel
+  const smNameplate = new types.Submodel(smNameplateId);
+  smNameplate.idShort = 'Nameplate';
+  smNameplate.semanticId = createSemanticReference(IDTA_NAMEPLATE_SEMANTIC_ID);
+  smNameplate.submodelElements = [
+    createProperty('ManufacturerName', types.DataTypeDefXsd.String, 'PrecisionGear AG'),
+    createProperty('ManufacturerProductDesignation', types.DataTypeDefXsd.String, 'Planetary Precision Gear PG-50'),
+    createProperty('SerialNumber', types.DataTypeDefXsd.String, 'PG-50-4821'),
+    createProperty('YearOfConstruction', types.DataTypeDefXsd.String, '2026')
   ];
 
   // Technical Data Submodel
@@ -91,41 +107,44 @@ export function buildTier2Environment(): types.Environment {
   smTech.idShort = 'TechnicalData';
   smTech.semanticId = createSemanticReference(IDTA_TECHNICAL_DATA_SEMANTIC_ID);
   smTech.submodelElements = [
-    createProperty('CellConfiguration', types.DataTypeDefXsd.String, '12S1P'),
-    createProperty('TotalVoltageV', types.DataTypeDefXsd.Double, '44.4'),
-    createProperty('WeightKg', types.DataTypeDefXsd.Double, '15.2')
-  ];
-
-  // PCF Submodel
-  const smPcf = new types.Submodel(smPcfId);
-  smPcf.idShort = 'CarbonFootprint';
-  smPcf.semanticId = createSemanticReference(IDTA_PCF_SEMANTIC_ID);
-  smPcf.submodelElements = [
-    createProperty('ProductCarbonFootprintKgCO2e', types.DataTypeDefXsd.Double, '245.0'),
-    createProperty('UpstreamCellRef', types.DataTypeDefXsd.String, 'urn:dataspace:tier3:aas:battery-cell-001')
+    createProperty('GearRatio', types.DataTypeDefXsd.String, '10:1'),
+    createProperty('MaxOutputTorqueNm', types.DataTypeDefXsd.Double, '450.0'),
+    createProperty('TorsionalBacklashArcmin', types.DataTypeDefXsd.Double, '1.2'),
+    createProperty('EfficiencyPercent', types.DataTypeDefXsd.Double, '97.5')
   ];
 
   const env = new types.Environment();
   env.assetAdministrationShells = [shell];
-  env.submodels = [smTech, smPcf];
+  env.submodels = [smNameplate, smTech];
   return env;
 }
 
 // -----------------------------------------------------------------------------
-// 3. Tier 1: Battery Pack Supplier
+// 3. Akteur C: Vibration Sensor Supplier (Public AAS Repo)
 // -----------------------------------------------------------------------------
-export function buildTier1Environment(): types.Environment {
-  const aasId = 'urn:dataspace:tier1:aas:battery-pack-001';
-  const assetId = 'urn:dataspace:tier1:asset:battery-pack-001';
-  const smTechId = 'urn:dataspace:tier1:sm:pack-tech-data';
-  const smPcfId = 'urn:dataspace:tier1:sm:pack-pcf';
+export function buildActorCEnvironment(): types.Environment {
+  const aasId = 'urn:dataspace:c:aas:sensor-001';
+  const assetId = 'urn:dataspace:c:asset:sensor-001';
+  const smNameplateId = 'urn:dataspace:c:sm:nameplate';
+  const smTechId = 'urn:dataspace:c:sm:technical-data';
 
   const assetInfo = new types.AssetInformation(types.AssetKind.Instance, assetId);
   const shell = new types.AssetAdministrationShell(aasId, assetInfo);
-  shell.idShort = 'BatteryPackAAS';
+  shell.idShort = 'VibrationSensorAAS';
   shell.submodels = [
-    createModelReference(types.KeyTypes.Submodel, smTechId),
-    createModelReference(types.KeyTypes.Submodel, smPcfId)
+    createModelReference(types.KeyTypes.Submodel, smNameplateId),
+    createModelReference(types.KeyTypes.Submodel, smTechId)
+  ];
+
+  // Nameplate Submodel
+  const smNameplate = new types.Submodel(smNameplateId);
+  smNameplate.idShort = 'Nameplate';
+  smNameplate.semanticId = createSemanticReference(IDTA_NAMEPLATE_SEMANTIC_ID);
+  smNameplate.submodelElements = [
+    createProperty('ManufacturerName', types.DataTypeDefXsd.String, 'SensX Automation Solutions'),
+    createProperty('ManufacturerProductDesignation', types.DataTypeDefXsd.String, 'Triaxial Vibration Sensor VIB-3X'),
+    createProperty('SerialNumber', types.DataTypeDefXsd.String, 'SX-VIB-3012'),
+    createProperty('YearOfConstruction', types.DataTypeDefXsd.String, '2026')
   ];
 
   // Technical Data Submodel
@@ -133,65 +152,153 @@ export function buildTier1Environment(): types.Environment {
   smTech.idShort = 'TechnicalData';
   smTech.semanticId = createSemanticReference(IDTA_TECHNICAL_DATA_SEMANTIC_ID);
   smTech.submodelElements = [
-    createProperty('PackCapacityKWh', types.DataTypeDefXsd.Double, '80.0'),
-    createProperty('NominalVoltageV', types.DataTypeDefXsd.Double, '400.0'),
-    createProperty('ModuleCount', types.DataTypeDefXsd.Integer, '8')
-  ];
-
-  // PCF Submodel
-  const smPcf = new types.Submodel(smPcfId);
-  smPcf.idShort = 'CarbonFootprint';
-  smPcf.semanticId = createSemanticReference(IDTA_PCF_SEMANTIC_ID);
-  smPcf.submodelElements = [
-    createProperty('ProductCarbonFootprintKgCO2e', types.DataTypeDefXsd.Double, '2150.0'),
-    createProperty('UpstreamModuleRef', types.DataTypeDefXsd.String, 'urn:dataspace:tier2:aas:battery-module-001')
+    createProperty('SamplingRateKHz', types.DataTypeDefXsd.Double, '25.6'),
+    createProperty('MeasuringRangeG', types.DataTypeDefXsd.Double, '50.0'),
+    createProperty('Interface', types.DataTypeDefXsd.String, 'IO-Link')
   ];
 
   const env = new types.Environment();
   env.assetAdministrationShells = [shell];
-  env.submodels = [smTech, smPcf];
+  env.submodels = [smNameplate, smTech];
   return env;
 }
 
 // -----------------------------------------------------------------------------
-// 4. OEM: Vehicle Manufacturer
+// 4. Akteur D: Machine Manufacturer (Maschinenbauer mit Simulation Submodel)
 // -----------------------------------------------------------------------------
-export function buildOemEnvironment(): types.Environment {
-  const aasId = 'urn:dataspace:oem:aas:vehicle-001';
-  const assetId = 'urn:dataspace:oem:asset:vehicle-001';
-  const smTechId = 'urn:dataspace:oem:sm:vehicle-tech-data';
-  const smPcfId = 'urn:dataspace:oem:sm:vehicle-pcf';
+export function buildActorDEnvironment(): types.Environment {
+  const aasId = 'urn:dataspace:d:aas:machine-type-001';
+  const assetId = 'urn:dataspace:d:asset:machine-type-001';
+  const smNameplateId = 'urn:dataspace:d:sm:nameplate';
+  const smTechId = 'urn:dataspace:d:sm:technical-data';
+  const smSimId = 'urn:dataspace:d:sm:machine-simulation';
 
-  const assetInfo = new types.AssetInformation(types.AssetKind.Instance, assetId);
+  const assetInfo = new types.AssetInformation(types.AssetKind.Type, assetId);
   const shell = new types.AssetAdministrationShell(aasId, assetInfo);
-  shell.idShort = 'ElectricVehicleAAS';
+  shell.idShort = 'MillingMachineTypeAAS';
   shell.submodels = [
+    createModelReference(types.KeyTypes.Submodel, smNameplateId),
     createModelReference(types.KeyTypes.Submodel, smTechId),
-    createModelReference(types.KeyTypes.Submodel, smPcfId)
+    createModelReference(types.KeyTypes.Submodel, smSimId)
   ];
 
-  // Technical Data Submodel
+  // Nameplate Submodel
+  const smNameplate = new types.Submodel(smNameplateId);
+  smNameplate.idShort = 'Nameplate';
+  smNameplate.semanticId = createSemanticReference(IDTA_NAMEPLATE_SEMANTIC_ID);
+  smNameplate.submodelElements = [
+    createProperty('ManufacturerName', types.DataTypeDefXsd.String, 'Apex Machining Systems GmbH'),
+    createProperty('ManufacturerProductDesignation', types.DataTypeDefXsd.String, '5-Axis CNC Precision Milling Center V5'),
+    createProperty('MachineType', types.DataTypeDefXsd.String, 'Industrial Milling Machine Type AAS')
+  ];
+
+  // Technical Data Submodel (referencing components from A, B, C)
   const smTech = new types.Submodel(smTechId);
   smTech.idShort = 'TechnicalData';
   smTech.semanticId = createSemanticReference(IDTA_TECHNICAL_DATA_SEMANTIC_ID);
   smTech.submodelElements = [
-    createProperty('ModelName', types.DataTypeDefXsd.String, 'VisionGT EV'),
-    createProperty('BatteryPackCapacityKWh', types.DataTypeDefXsd.Double, '80.0'),
-    createProperty('DriveType', types.DataTypeDefXsd.String, 'AWD Dual Motor')
+    createProperty('SpindlePowerKW', types.DataTypeDefXsd.Double, '22.0'),
+    createProperty('MaxSpindleSpeedRPM', types.DataTypeDefXsd.Integer, '18000'),
+    createProperty('AxisCount', types.DataTypeDefXsd.Integer, '5'),
+    createProperty('IntegratedMotorRef', types.DataTypeDefXsd.String, 'urn:dataspace:a:aas:servo-motor-001'),
+    createProperty('IntegratedGearboxRef', types.DataTypeDefXsd.String, 'urn:dataspace:b:aas:gearbox-001'),
+    createProperty('IntegratedSensorRef', types.DataTypeDefXsd.String, 'urn:dataspace:c:aas:sensor-001')
   ];
 
-  // PCF Submodel
-  const smPcf = new types.Submodel(smPcfId);
-  smPcf.idShort = 'CarbonFootprint';
-  smPcf.semanticId = createSemanticReference(IDTA_PCF_SEMANTIC_ID);
-  smPcf.submodelElements = [
-    createProperty('VehicleTotalCarbonFootprintKgCO2e', types.DataTypeDefXsd.Double, '8500.0'),
-    createProperty('UpstreamPackRef', types.DataTypeDefXsd.String, 'urn:dataspace:tier1:aas:battery-pack-001')
+  // Simulation Submodel (Restricted to paying customers like Akteur E)
+  const smSim = new types.Submodel(smSimId);
+  smSim.idShort = 'SimulationModel';
+  smSim.semanticId = createSemanticReference(IDTA_SIMULATION_SEMANTIC_ID);
+  smSim.submodelElements = [
+    createProperty('SimulationType', types.DataTypeDefXsd.String, 'KinematicAndThermalFEA'),
+    createProperty('ModelVersion', types.DataTypeDefXsd.String, 'v3.2.1'),
+    createProperty('ToolCenterPointPrecisionMicron', types.DataTypeDefXsd.Double, '2.5'),
+    createProperty('ThermalDriftCoefficient', types.DataTypeDefXsd.Double, '0.0014'),
+    createProperty('SimulationPackageUrl', types.DataTypeDefXsd.String, 's3://apex-simulation-vault/packages/v5-thermal-fea.fmu'),
+    createProperty('SimulationMeshElements', types.DataTypeDefXsd.Integer, '1450000')
   ];
 
   const env = new types.Environment();
   env.assetAdministrationShells = [shell];
-  env.submodels = [smTech, smPcf];
+  env.submodels = [smNameplate, smTech, smSim];
+  return env;
+}
+
+// -----------------------------------------------------------------------------
+// 5. Akteur E: Production Plant (Hersteller mit TimeSeries Submodel)
+// -----------------------------------------------------------------------------
+export function buildActorEEnvironment(): types.Environment {
+  const aasId = 'urn:dataspace:e:aas:produced-part-001';
+  const assetId = 'urn:dataspace:e:asset:produced-part-001';
+  const smNameplateId = 'urn:dataspace:e:sm:nameplate';
+  const smTimeSeriesId = 'urn:dataspace:e:sm:timeseries';
+
+  const assetInfo = new types.AssetInformation(types.AssetKind.Instance, assetId);
+  const shell = new types.AssetAdministrationShell(aasId, assetInfo);
+  shell.idShort = 'TurbineBladeProductAAS';
+  shell.submodels = [
+    createModelReference(types.KeyTypes.Submodel, smNameplateId),
+    createModelReference(types.KeyTypes.Submodel, smTimeSeriesId)
+  ];
+
+  // Nameplate Submodel (Publicly visible to dataspace participants)
+  const smNameplate = new types.Submodel(smNameplateId);
+  smNameplate.idShort = 'Nameplate';
+  smNameplate.semanticId = createSemanticReference(IDTA_NAMEPLATE_SEMANTIC_ID);
+  smNameplate.submodelElements = [
+    createProperty('ManufacturerName', types.DataTypeDefXsd.String, 'PrecisionAero Components GmbH'),
+    createProperty('ManufacturerProductDesignation', types.DataTypeDefXsd.String, 'HighPressure Turbine Blade Ti-6Al-4V'),
+    createProperty('PartSerialNumber', types.DataTypeDefXsd.String, 'HPTB-2026-0042'),
+    createProperty('ManufacturingDate', types.DataTypeDefXsd.String, '2026-10-12'),
+    createProperty('ProducingMachineRef', types.DataTypeDefXsd.String, 'urn:dataspace:d:aas:machine-type-001')
+  ];
+
+  // TimeSeries Submodel (Restricted to verified customers like Akteur F)
+  const smTimeSeries = new types.Submodel(smTimeSeriesId);
+  smTimeSeries.idShort = 'TimeSeries';
+  smTimeSeries.semanticId = createSemanticReference(IDTA_TIMESERIES_SEMANTIC_ID);
+  smTimeSeries.submodelElements = [
+    createProperty('ProcessRecordCount', types.DataTypeDefXsd.Integer, '3600'),
+    createProperty('AverageMillingTemperatureCelsius', types.DataTypeDefXsd.Double, '142.8'),
+    createProperty('PeakVibrationRMS', types.DataTypeDefXsd.Double, '0.45'),
+    createProperty('SurfaceRoughnessRaMicron', types.DataTypeDefXsd.Double, '0.38'),
+    createProperty('SpindleLoadPercent', types.DataTypeDefXsd.Double, '68.4'),
+    createProperty('TimeSeriesStorageUrl', types.DataTypeDefXsd.String, 'https://influxdb.internal.e/query?part=HPTB-2026-0042')
+  ];
+
+  const env = new types.Environment();
+  env.assetAdministrationShells = [shell];
+  env.submodels = [smNameplate, smTimeSeries];
+  return env;
+}
+
+// -----------------------------------------------------------------------------
+// 6. Akteur F: Customer of E (Endkunde)
+// -----------------------------------------------------------------------------
+export function buildActorFEnvironment(): types.Environment {
+  const aasId = 'urn:dataspace:f:aas:customer-profile-001';
+  const assetId = 'urn:dataspace:f:asset:customer-profile-001';
+  const smNameplateId = 'urn:dataspace:f:sm:nameplate';
+
+  const assetInfo = new types.AssetInformation(types.AssetKind.Instance, assetId);
+  const shell = new types.AssetAdministrationShell(aasId, assetInfo);
+  shell.idShort = 'CustomerAeroEngineOEM';
+  shell.submodels = [
+    createModelReference(types.KeyTypes.Submodel, smNameplateId)
+  ];
+
+  const smNameplate = new types.Submodel(smNameplateId);
+  smNameplate.idShort = 'Nameplate';
+  smNameplate.semanticId = createSemanticReference(IDTA_NAMEPLATE_SEMANTIC_ID);
+  smNameplate.submodelElements = [
+    createProperty('CustomerName', types.DataTypeDefXsd.String, 'AeroEngine Global Corp'),
+    createProperty('ProcurementProject', types.DataTypeDefXsd.String, 'NextGen Turbofan Engine X200'),
+    createProperty('AuthorizedCustomerFor', types.DataTypeDefXsd.String, 'urn:dataspace:e:aas:produced-part-001')
+  ];
+
+  const env = new types.Environment();
+  env.assetAdministrationShells = [shell];
+  env.submodels = [smNameplate];
   return env;
 }
 
@@ -240,10 +347,12 @@ function main() {
   const targets = [distDir, helmFilesDir];
 
   const actors = [
-    { name: 'oem', env: buildOemEnvironment() },
-    { name: 'tier1', env: buildTier1Environment() },
-    { name: 'tier2', env: buildTier2Environment() },
-    { name: 'tier3', env: buildTier3Environment() }
+    { name: 'actor-a', env: buildActorAEnvironment() },
+    { name: 'actor-b', env: buildActorBEnvironment() },
+    { name: 'actor-c', env: buildActorCEnvironment() },
+    { name: 'actor-d', env: buildActorDEnvironment() },
+    { name: 'actor-e', env: buildActorEEnvironment() },
+    { name: 'actor-f', env: buildActorFEnvironment() }
   ];
 
   for (const actor of actors) {
@@ -251,7 +360,7 @@ function main() {
   }
 
   console.log('\n================================================================');
-  console.log(' All 4 AAS Environments successfully generated and verified!');
+  console.log(' All 6 AAS Environments successfully generated and verified!');
   console.log('================================================================\n');
 }
 

@@ -1,0 +1,20 @@
+actor:
+  name: "actor-f"
+  displayName: "Actor F - Customer of E"
+
+gateway:
+  allowedProviders:
+    - "actor-e-gateway"
+
+ingress:
+  enabled: true
+  host: "actor-f.localhost"
+
+secsm:
+  enabled: false
+
+sts:
+  enabled: false
+
+rbac:
+  enabled: false

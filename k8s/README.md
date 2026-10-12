@@ -1,143 +1,135 @@
-# 4-Akteure Kaskadierende Supply-Chain in k3d (Kubernetes)
+# 6-Akteure Datenraum-Architektur in k3d (Kubernetes)
 
-Dieses Verzeichnis enthält die vollständige Kubernetes-Implementierung einer **4-Akteure kaskadierenden Lieferkette** (Supply Chain) für die Masterarbeit.
+Dieses Verzeichnis enthält die vollständige Kubernetes-Implementierung eines **6-Akteure Datenraums** für die Masterarbeit.
 
 ---
 
-## 1. Architekturüberblick
+## 1. Architektur & Szenario-Überblick
 
-In der automobilen Lieferkette werden Batteriedaten (technische Daten & Product Carbon Footprint - PCF) über mehrere Stufen hinweg vertraulich und souverän geteilt:
+Im industriellen Datenraum agieren 6 Akteure entlang einer Fertigungskette (von Komponentenherstellern bis zum Endkunden):
 
 ```text
-┌──────────────────────┐         ┌──────────────────────┐         ┌──────────────────────┐         ┌──────────────────────┐
-│         OEM          │  Hop 1  │        Tier 1        │  Hop 2  │        Tier 2        │  Hop 3  │        Tier 3        │
-│  (Fahrzeugfertiger)  ├────────►│  (Batterie-Pack)     ├────────►│  (Batterie-Modul)    ├────────►│   (Batterie-Zelle)   │
-│                      │         │                      │         │                      │         │                      │
-│ - Keycloak (oem)     │         │ - Keycloak (tier1)   │         │ - Keycloak (tier2)   │         │ - Keycloak (tier3)   │
-│ - OpenResty Gateway  │         │ - OpenResty Gateway  │         │ - OpenResty Gateway  │         │ - OpenResty Gateway  │
-│ - Siemens STS        │         │ - Siemens STS        │         │ - Siemens STS        │         │ - Siemens STS        │
-│ - BaSyx AAS          │         │ - BaSyx AAS (Pack)   │         │ - BaSyx AAS (Module) │         │ - BaSyx AAS (Cell)   │
-│ - Security Submodel  │         │ - Security Submodel  │         │ - Security Submodel  │         │ - Security Submodel  │
-└──────────────────────┘         └──────────────────────┘         └──────────────────────┘         └──────────────────────┘
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│    Akteur A     │ │    Akteur B     │ │    Akteur C     │
+│  (Servo Motor)  │ │   (Getriebe)    │ │    (Sensor)     │
+│                 │ │                 │ │                 │
+│ Public AAS Repo │ │ Public AAS Repo │ │ Public AAS Repo │
+└────────┬────────┘ └────────┬────────┘ └────────┬────────┘
+         │                   │                   │
+         └─────────────┬─────┴───────────────────┘
+                       │ Öffentlicher Datenvergleich
+                       ▼
+            ┌─────────────────────┐
+            │      Akteur D       │
+            │  (Maschinenbauer)   │
+            │                     │
+            │ - MachineTypeAAS    │
+            │ - Simulation SM 🔒  │ ◄─── Nur autorisierte Kunden (Keycloak + SecSM)
+            └──────────┬──────────┘
+                       │ Kauf von Maschine & Zugriff auf Simulation
+                       ▼
+            ┌─────────────────────┐
+            │      Akteur E       │
+            │ (Bauteilfertigung)  │
+            │                     │
+            │ - Nameplate SM 🌐   │ ◄─── Für alle im Datenraum lesbar
+            │ - TimeSeries SM 🔒  │ ◄─── Nur für Endkunden (Keycloak + SecSM)
+            └──────────┬──────────┘
+                       │ Kauf des hergestellten Bauteils
+                       ▼
+            ┌─────────────────────┐
+            │      Akteur F       │
+            │     (Endkunde)      │
+            │                     │
+            │ Zugriff auf         │
+            │ TimeSeries SM       │
+            └─────────────────────┘
 ```
-
-### Kaskaden-Prinzip & Sicherheitsgrenzen
-1. **Hop 1 (OEM ➔ Tier 1)**: Der OEM authentifiziert sich über seinen Keycloak (`realm: oem`). Das Gateway und der STS von Tier 1 prüfen das Token und tauschen es per RFC 8693 Token Exchange gegen ein internes AAS-Token aus. Der OEM erhält Zugriff auf die `BatteryPackAAS` (Kapazität: 80 kWh, PCF: 2150 kg CO2e).
-2. **Hop 2 (Tier 1 ➔ Tier 2)**: Tier 1 fragt Tier 2 mit seinem Tier-1-Token an. Tier 2 validiert das Token und liefert die `BatteryModuleAAS` (12S1P, PCF: 245 kg CO2e).
-3. **Hop 3 (Tier 2 ➔ Tier 3)**: Tier 2 fragt Tier 3 mit seinem Tier-2-Token an. Tier 3 liefert die `BatteryCellAAS` (NMC 811 Chemie, PCF: 18.5 kg CO2e).
-4. **Boundary Isolation (Negative Testing)**:
-   - Ein direkter Aufruf des OEM auf Tier 3 oder Tier 2 wird vom jeweiligen STS **strikt mit HTTP 401 abgelehnt**, da Tier 3 ausschließlich Tier 2 und Tier 2 ausschließlich Tier 1 vertraut.
-   - Anfragen ohne Token oder mit gefälschten Signaturen werden sofort verworfen.
 
 ---
 
-## 2. Koexistenz mit dem bisherigen 2-Akteure Docker Compose Setup
+## 2. Die Akteure im Detail
 
-Das ursprüngliche 2-Akteure Docker Compose Setup bleibt **vollständig unberührt und funktionstüchtig**:
-- **Git Tag**: `v1.0-2actors-compose`
-- **Git Branch**: `scenario/2-actors-compose`
-- **Dateien**: Die Ordner `compose/`, `provider/`, `consumer/`, `postman/` und `tests/` bleiben für Docker Compose unverändert erhalten.
-- Das neue k3d/Helm-Setup lebt isoliert im Verzeichnis `k8s/`.
+| Akteur | Rolle & Industrieller Kontext | Bereitgestellte AAS & Teilmodelle | Schutz & Autorisierung |
+|---|---|---|---|
+| **Akteur A** | Zulieferer für Servomotoren | `ServoMotorAAS` (`urn:dataspace:a:aas:servo-motor-001`)<br>• `Nameplate`<br>• `TechnicalData` (15 kW, IE4) | **100% Öffentlich**<br>(Ohne Auth/Token erreichbar) |
+| **Akteur B** | Zulieferer für Industriegetriebe | `IndustrialGearboxAAS` (`urn:dataspace:b:aas:gearbox-001`)<br>• `Nameplate`<br>• `TechnicalData` (10:1 Untersetzung, 450 Nm) | **100% Öffentlich**<br>(Ohne Auth/Token erreichbar) |
+| **Akteur C** | Zulieferer für Vibrationssensoren | `VibrationSensorAAS` (`urn:dataspace:c:aas:sensor-001`)<br>• `Nameplate`<br>• `TechnicalData` (25.6 kHz, IO-Link) | **100% Öffentlich**<br>(Ohne Auth/Token erreichbar) |
+| **Akteur D** | CNC-Maschinenhersteller | `MillingMachineTypeAAS` (`urn:dataspace:d:aas:machine-type-001`)<br>• `Nameplate`<br>• `TechnicalData` (integriert A, B, C)<br>• `SimulationModel` (Kinematik & Thermo-FEA) | **Geschützt (Keycloak + SecSM)**<br>Zugriff auf Simulation SM nur für Kunden (Akteur E mit Rolle `customer-d`) |
+| **Akteur E** | Präzisions-Fertiger (Turbinenschaufeln) | `TurbineBladeProductAAS` (`urn:dataspace:e:aas:produced-part-001`)<br>• `Nameplate` (Hersteller, Maschine D)<br>• `TimeSeries` (Prozessdaten: Frästemperatur, Vibration) | **Geschützt (Keycloak + SecSM)**<br>• **Nameplate**: Für alle Partner sichtbar<br>• **TimeSeries**: Strikt nur für Kunde F (`customer-e`) |
+| **Akteur F** | Endkunde (Triebwerksbauer) | Fragt Bauteildaten von E ab für Qualitäts- & Abnahmezwecke | **Client mit Keycloak-Identität**<br>Erhält Zugriff auf `TimeSeries` SM von Akteur E |
 
 ---
 
-## 3. Windows 11 Setup-Anleitung (32 GB RAM, Docker Desktop)
+## 3. IDTA-Metamodell & TypeScript SDK
 
-Das Setup wurde speziell so optimiert, dass alle 18 Pods zusammen nur **ca. 3,5 GB RAM** benötigen. Auf einem 32 GB Windows 11 Laptop mit Docker Desktop läuft das System daher absolut flüssig und ressourcenschonend.
+Alle AAS-Modelle werden über das offizielle TypeScript SDK (`@aas-core-works/aas-core3.0-typescript`) typisiert erstellt und gegen die formale IDTA V3-Spezifikation validiert:
 
-### 3.1 Voraussetzungen installieren
-In einer administrativen PowerShell:
+* **Generator-Skript**: `models/src/generate-models.ts`
+* **Ausgabe**: `k8s/helm/dataspace-actor/files/models/actor-{a..f}.json`
+* **Ausführen**:
+  ```bash
+  npm run generate --prefix models
+  ```
+
+---
+
+## 4. Endpunkte (Traefik Ingress auf Port 80)
+
+Dank `*.localhost` sind **keine `/etc/hosts`-Einträge erforderlich**:
+
+| Komponente / Akteur | Ingress URL | Zweck / Authentifizierung |
+|---|---|---|
+| **Keycloak** | `http://keycloak.localhost` | Identity Provider (Realms: `BaSyx`, `actor-d`, `actor-e`, `actor-f`) |
+| **Akteur A** | `http://actor-a.localhost` | Public AAS Repo (Servomotor Produktdaten) |
+| **Akteur B** | `http://actor-b.localhost` | Public AAS Repo (Getriebe Produktdaten) |
+| **Akteur C** | `http://actor-c.localhost` | Public AAS Repo (Sensor Produktdaten) |
+| **Akteur D** | `http://actor-d.localhost` | Maschinenbauer (Geschützte Simulationsdaten) |
+| **Akteur E** | `http://actor-e.localhost` | Bauteilfertiger (Öffentliche Nameplate, geschützte TimeSeries) |
+| **Akteur F** | `http://actor-f.localhost` | Kunde von Akteur E |
+
+---
+
+## 5. Bereitstellung & Testen
+
+### 5.1 Windows 11 (PowerShell)
+
 ```powershell
-# Paketmanager Winget oder Chocolatey nutzen:
-winget install Rancher.k3d
-winget install Helm.Helm
-winget install Kubernetes.kubectl
-```
-*Hinweis: Docker Desktop muss laufen (WSL 2 Backend empfohlen).*
-
-### 3.2 Cluster starten & bereitstellen (1-Klick)
-```powershell
-# Im Projekt-Root:
-cd mxport-env
+# 1. Cluster starten & alle 6 Akteure bereitstellen
 .\k8s\scripts\cluster-up.ps1
-```
-Dieses Skript:
-1. Erstellt den k3d-Cluster `dataspace` mit Traefik Ingress auf Port 80.
-2. Konfiguriert Kubelet so, dass Disk-Pressure-Evictions auf Entwickler-Laptops verhindert werden.
-3. Importiert alle Docker-Images in den Cluster.
-4. Rollt die Shared Infrastructure (MongoDB, Keycloak mit 5 vorkonfigurierten Realms) aus.
-5. Rollt alle 4 Akteure (`oem`, `tier1`, `tier2`, `tier3`) per Helm aus.
 
-### 3.3 Automatisierte Tests ausführen
-Entweder mit dem PowerShell-Testskript:
-```powershell
-.\k8s\tests\verify_4actor_chain.ps1
-```
+# 2. Automatisierte End-to-End Testsuite ausführen
+.\k8s\tests\verify_6actor_chain.ps1
 
-Oder mit Newman / Postman:
-```powershell
-npx -y newman run k8s/postman/4-Actor-Supply-Chain.postman_collection.json
-```
-*(34 von 34 Assertions laufen in ca. 2 Sekunden erfolgreich durch!)*
-
-### 3.4 Cluster stoppen / bereinigen
-```powershell
+# 3. Cluster stoppen
 .\k8s\scripts\cluster-down.ps1
 ```
 
----
+### 5.2 macOS / Linux (Bash)
 
-## 4. macOS / Linux Anleitung
-
-### Cluster starten & bereitstellen:
 ```bash
+# 1. Cluster starten & alle 6 Akteure bereitstellen
 ./k8s/scripts/cluster-up.sh
-```
 
-### Tests ausführen:
-```bash
-# Bash-Testsuite (30 Tests)
-./k8s/tests/verify_4actor_chain.sh
+# 2. Automatisierte End-to-End Testsuite ausführen
+./k8s/tests/verify_6actor_chain.sh
 
-# Newman / Postman Testsuite (34 Tests)
-npx -y newman run k8s/postman/4-Actor-Supply-Chain.postman_collection.json
-```
-
-### Cluster löschen:
-```bash
+# 3. Cluster stoppen
 ./k8s/scripts/cluster-down.sh
 ```
 
 ---
 
-## 5. Endpunkte & Domain-Mapping
+## 6. Verifikation der Schutzanforderungen
 
-Dank des integrierten Traefik Ingress Controllers auf Port 80 sind **keine Änderungen an `/etc/hosts` nötig** (da moderne Betriebssysteme und Browser `*.localhost` automatisch auf `127.0.0.1` auflösen):
-
-| Komponente | Ingress URL | Zweck |
-|---|---|---|
-| **Keycloak** | `http://keycloak.localhost` | Identity Provider für alle 5 Realms (`BaSyx`, `oem`, `tier1`, `tier2`, `tier3`) |
-| **OEM Gateway** | `http://oem.localhost` | Einstiegspunkt für den OEM |
-| **Tier 1 Gateway** | `http://tier1.localhost` | Liefert `BatteryPackAAS` (Port 80 Ingress) |
-| **Tier 2 Gateway** | `http://tier2.localhost` | Liefert `BatteryModuleAAS` (Port 80 Ingress) |
-| **Tier 3 Gateway** | `http://tier3.localhost` | Liefert `BatteryCellAAS` (Port 80 Ingress) |
-
----
-
-## 6. Technische Details der Komponenten
-
-### OpenResty / Nginx Gateway
-- Dynamische LUA-Skripte (`sts.lua`) fangen eingehende Anfragen ab.
-- Führen RFC 8693 Token Exchange gegen den akteursspezifischen STS durch.
-- Cachen Tokens in der Shared Memory Zone `sts_token_cache` (5 Minuten TTL).
-- Leiten den Aufruf mit dem STS-signierten Token an die lokale BaSyx AAS weiter.
-
-### Siemens STS (Security Token Service)
-- Validiert externe Partner-Tokens anhand konfigurierter JWKS-Endpunkte.
-- Mappt Attribute und Rollen per Filter-Pipeline (`BasyxFilter`, `ClaimsCopyFilter`, `ClaimsAppenderFilter`).
-- Signiert neue JWT-Tokens für die BaSyx AAS Audience.
-
-### Eclipse BaSyx AAS & Security Submodel
-- **Dynamic RBAC Backend**: Nutzt `basyx.feature.authorization.rules.backend=Submodel`.
-- **Preconfiguration Loader**: Initialisiert die Shells und Submodels (`TechnicalData`, `CarbonFootprint`) beim Pod-Start unter Einhaltung des RBAC-Modells.
-- **MongoDB**: Persistiert die dynamischen RBAC-Regeln der Security Submodels im Cluster.
+Die automatisierte Testsuite überprüft folgende Anforderungen:
+1. **Akteure A, B, C sind öffentlich**: Beliebige Aufrufe auf `/shells` und `/submodels` gelingen ohne Token (HTTP 200).
+2. **Akteur D schützt Simulation**:
+   - Aufruf ohne Token: **HTTP 401 Unauthorized**.
+   - Aufruf mit Token von Akteur F (kein Kunde von D): **HTTP 401/403 Forbidden**.
+   - Aufruf von Akteur E (Kunde von D mit Token `actor-e-client`): **HTTP 200 OK** (Simulation Submodel wird geliefert).
+3. **Akteur E differenziert Nameplate vs. TimeSeries**:
+   - Akteur D (nicht-Kunde von E) fragt `Nameplate` ab: **HTTP 200 OK** (*"andere sehen nur Nameplate"*).
+   - Akteur D fragt `TimeSeries` ab: **HTTP 403 Forbidden**.
+   - Kunde F fragt `TimeSeries` ab: **HTTP 200 OK** (Prozess- und Fertigungsdaten werden geliefert).
+   - Aufruf ohne Token auf `TimeSeries`: **HTTP 401 Unauthorized**.

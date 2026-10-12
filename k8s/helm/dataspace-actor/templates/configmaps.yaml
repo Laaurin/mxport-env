@@ -46,10 +46,12 @@ data:
             end
             ngx.var.provider_target = target
 
+            {{- if .Values.sts.enabled }}
             require("sts").exchange({
               sts_url        = "http://{{ .Release.Name }}-sts.{{ .Release.Namespace }}.svc.cluster.local:9050/sts/token",
               target_service = host,
             })
+            {{- end }}
           }
 
           proxy_set_header Host $provider_host;
@@ -58,12 +60,14 @@ data:
 
         # Inbound proxy: Authenticate incoming customer requests & forward to local AAS
         location / {
+          {{- if .Values.sts.enabled }}
           access_by_lua_block {
             require("sts").exchange({
               sts_url        = "http://{{ .Release.Name }}-sts.{{ .Release.Namespace }}.svc.cluster.local:9050/sts/token",
               target_service = "{{ .Release.Name }}-aas",
             })
           }
+          {{- end }}
 
           set $upstream "http://{{ .Release.Name }}-aas.{{ .Release.Namespace }}.svc.cluster.local:8081";
           proxy_pass $upstream;
@@ -140,6 +144,7 @@ data:
     end
 
     return _M
+{{- if .Values.sts.enabled }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -211,6 +216,7 @@ data:
       claimsMap:
         sub: sub
         scope: scope
+        roles: roles
     ---
     !!com.siemens.iam.exchange.core.filter.SetExpiryFilter
       issuer: http://keycloak:8080/realms/{{ .Values.actor.name }}
@@ -227,6 +233,7 @@ data:
       claimsMap:
         sub: sub
         scope: scope
+        roles: roles
     ---
     !!com.siemens.iam.exchange.core.filter.SetExpiryFilter
       issuer: http://keycloak.localhost/realms/{{ .Values.actor.name }}
@@ -245,6 +252,7 @@ data:
       claimsMap:
         sub: sub
         scope: scope
+        roles: roles
     ---
     !!com.siemens.iam.exchange.core.filter.SetExpiryFilter
       issuer: {{ .issuer }}
@@ -260,6 +268,8 @@ data:
       issuer: {{ .issuer }}
       targetAudience: {{ $.Release.Name }}-aas
     {{- end }}
+{{- end }}
+{{- if .Values.secsm.enabled }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -307,6 +317,7 @@ data:
         "type": "ExternalReference"
       }
     }
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -320,27 +331,37 @@ data:
     basyx.cors.allowed-origins=*
     basyx.cors.allowed-methods=GET,POST,PATCH,DELETE,PUT,OPTIONS,HEAD
 
+    {{- if .Values.rbac.enabled }}
     basyx.feature.authorization.enabled=true
     basyx.feature.authorization.type=rbac
     basyx.feature.authorization.jwtBearerTokenProvider=keycloak
     basyx.feature.authorization.rbac.file=file:/application/rbac_rules.json
 
+    {{- if .Values.secsm.enabled }}
     basyx.feature.authorization.rules.backend=Submodel
     basyx.feature.authorization.rules.backend.submodel.authorization.endpoint=http://{{ .Release.Name }}-secsm:8081/submodels/U2VjdXJpdHlTdWJtb2RlbA==
     basyx.feature.authorization.rules.backend.submodel.authorization.token-endpoint=http://keycloak:8080/realms/BaSyx/protocol/openid-connect/token
     basyx.feature.authorization.rules.backend.submodel.authorization.grant-type=CLIENT_CREDENTIALS
     basyx.feature.authorization.rules.backend.submodel.authorization.client-id=workstation-1
     basyx.feature.authorization.rules.backend.submodel.authorization.client-secret=nY0mjyECF60DGzNmQUjL81XurSl8etom
+    {{- end }}
 
     spring.security.oauth2.resourceserver.jwt.issuer-uri=http://{{ .Release.Name }}-sts:9050/sts
     basyx.aasenvironment.authorization.preconfiguration.token-endpoint=http://keycloak:8080/realms/BaSyx/protocol/openid-connect/token
     basyx.aasenvironment.authorization.preconfiguration.grant-type=CLIENT_CREDENTIALS
     basyx.aasenvironment.authorization.preconfiguration.client-id=workstation-1
     basyx.aasenvironment.authorization.preconfiguration.client-secret=nY0mjyECF60DGzNmQUjL81XurSl8etom
+    {{- else }}
+    basyx.feature.authorization.enabled=false
+    {{- end }}
     spring.servlet.multipart.max-request-size=128MB
     spring.servlet.multipart.max-file-size=128MB
 
+  {{- if .Values.rbac.enabled }}
   rbac_rules.json: |
+    {{- if .Values.rbac.rules }}
+    {{ toJson .Values.rbac.rules | indent 4 }}
+    {{- else }}
     [
       {
         "role": "admin",
@@ -376,43 +397,10 @@ data:
           "submodelIds": "*",
           "conceptDescriptionIds": "*"
         }
-      },
-      {
-        "role": "basyx-creator",
-        "action": ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"],
-        "targetInformation": {
-          "@type": "concept-description",
-          "conceptDescriptionIds": "*"
-        }
-      },
-      {
-        "role": "basyx-creator",
-        "action": ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"],
-        "targetInformation": {
-          "@type": "aas",
-          "aasIds": "*"
-        }
-      },
-      {
-        "role": "basyx-creator",
-        "action": ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"],
-        "targetInformation": {
-          "@type": "submodel",
-          "submodelIds": "*",
-          "submodelElementIdShortPaths": "*"
-        }
-      },
-      {
-        "role": "basyx-creator",
-        "action": ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"],
-        "targetInformation": {
-          "@type": "aas-environment",
-          "aasIds": "*",
-          "submodelIds": "*",
-          "conceptDescriptionIds": "*"
-        }
       }
     ]
+    {{- end }}
+  {{- end }}
 
   model.json: |-
 {{- if .Values.aasModel }}

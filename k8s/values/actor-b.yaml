@@ -1,0 +1,19 @@
+actor:
+  name: "actor-b"
+  displayName: "Actor B - Gearbox Supplier"
+
+gateway:
+  allowedProviders: []
+
+ingress:
+  enabled: true
+  host: "actor-b.localhost"
+
+secsm:
+  enabled: false
+
+sts:
+  enabled: false
+
+rbac:
+  enabled: false
