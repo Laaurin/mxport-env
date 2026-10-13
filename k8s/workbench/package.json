@@ -1,0 +1,10 @@
+{
+  "name": "dataspace-workbench",
+  "version": "1.0.0",
+  "description": "Interactive Web UI & Test Workbench for the 6-Actor Industrial Dataspace",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}

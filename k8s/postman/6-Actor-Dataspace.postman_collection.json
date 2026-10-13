@@ -1,0 +1,514 @@
+{
+  "info": {
+    "_postman_id": "c7a8b9e0-1f2a-3b4c-5d6e-7f8a9b0c1d2e",
+    "name": "6-Actor Industrial Dataspace Verification",
+    "description": "Comprehensive E2E Test Suite for the 6-Actor Industrial Dataspace in k3d:\n- Actors A, B, C: Public AAS Repos (Servo Motor, Gearbox, Sensor)\n- Actor D: Machine Manufacturer, compares A/B/C data, protects Simulation SM (Keycloak + SecSM)\n- Actor E: Production Plant, buys machine from D (receives Simulation SM), logs TimeSeries SM, restricts TimeSeries to verified customers while Nameplate is visible to others\n- Actor F: Customer of E, verifies access to TimeSeries SM",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "keycloak_base", "value": "http://keycloak.localhost" },
+    { "key": "actor_a_gw", "value": "http://actor-a.localhost" },
+    { "key": "actor_b_gw", "value": "http://actor-b.localhost" },
+    { "key": "actor_c_gw", "value": "http://actor-c.localhost" },
+    { "key": "actor_d_gw", "value": "http://actor-d.localhost" },
+    { "key": "actor_e_gw", "value": "http://actor-e.localhost" },
+    { "key": "actor_f_gw", "value": "http://actor-f.localhost" },
+    { "key": "token_d", "value": "" },
+    { "key": "token_e", "value": "" },
+    { "key": "token_f", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0 - Health Checks",
+      "item": [
+        {
+          "name": "Keycloak Health (BaSyx)",
+          "request": {
+            "method": "GET",
+            "url": "{{keycloak_base}}/realms/BaSyx/.well-known/openid-configuration"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Issuer is valid', function () { var j = pm.response.json(); pm.expect(j.issuer).to.include('/realms/BaSyx'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor A Gateway Health",
+          "request": { "method": "GET", "url": "{{actor_a_gw}}/healthz" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function () { pm.response.to.have.status(200); });"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Actor B Gateway Health",
+          "request": { "method": "GET", "url": "{{actor_b_gw}}/healthz" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function () { pm.response.to.have.status(200); });"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Actor C Gateway Health",
+          "request": { "method": "GET", "url": "{{actor_c_gw}}/healthz" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function () { pm.response.to.have.status(200); });"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Actor D Gateway Health",
+          "request": { "method": "GET", "url": "{{actor_d_gw}}/healthz" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function () { pm.response.to.have.status(200); });"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Actor E Gateway Health",
+          "request": { "method": "GET", "url": "{{actor_e_gw}}/healthz" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function () { pm.response.to.have.status(200); });"], "type": "text/javascript" } }]
+        },
+        {
+          "name": "Actor F Gateway Health",
+          "request": { "method": "GET", "url": "{{actor_f_gw}}/healthz" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', function () { pm.response.to.have.status(200); });"], "type": "text/javascript" } }]
+        }
+      ]
+    },
+    {
+      "name": "1 - Token Acquisition",
+      "item": [
+        {
+          "name": "Get Actor D Token (partner-d)",
+          "request": {
+            "method": "POST",
+            "url": "{{keycloak_base}}/realms/actor-d/protocol/openid-connect/token",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "client_credentials" },
+                { "key": "client_id", "value": "actor-d-client" },
+                { "key": "client_secret", "value": "actor-d-secret-12345" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.expect(data).to.have.property('access_token');",
+                  "pm.collectionVariables.set('token_d', data.access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Actor E Token (customer-d)",
+          "request": {
+            "method": "POST",
+            "url": "{{keycloak_base}}/realms/actor-e/protocol/openid-connect/token",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "client_credentials" },
+                { "key": "client_id", "value": "actor-e-client" },
+                { "key": "client_secret", "value": "actor-e-secret-12345" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.expect(data).to.have.property('access_token');",
+                  "pm.collectionVariables.set('token_e', data.access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Actor F Token (customer-e)",
+          "request": {
+            "method": "POST",
+            "url": "{{keycloak_base}}/realms/actor-f/protocol/openid-connect/token",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "client_credentials" },
+                { "key": "client_id", "value": "actor-f-client" },
+                { "key": "client_secret", "value": "actor-f-secret-12345" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
+                  "var data = pm.response.json();",
+                  "pm.expect(data).to.have.property('access_token');",
+                  "pm.collectionVariables.set('token_f', data.access_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 - Public Product Data (Actors A, B, C)",
+      "item": [
+        {
+          "name": "Actor A - Query Shells (Public, No Auth)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_a_gw}}/shells"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var j = pm.response.json();",
+                  "var raw = JSON.stringify(j);",
+                  "pm.expect(raw).to.include('ServoMotorAAS');",
+                  "pm.expect(raw).to.include('urn:dataspace:a:aas:servo-motor-001');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor A - Query TechnicalData Submodel (Public)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_a_gw}}/submodels/dXJuOmRhdGFzcGFjZTphOnNtOnRlY2huaWNhbC1kYXRh"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var raw = JSON.stringify(pm.response.json());",
+                  "pm.expect(raw).to.include('NominalPowerKW');",
+                  "pm.expect(raw).to.include('IE4');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor B - Query Shells (Public, No Auth)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_b_gw}}/shells"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var raw = JSON.stringify(pm.response.json());",
+                  "pm.expect(raw).to.include('IndustrialGearboxAAS');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor B - Query TechnicalData Submodel (Public)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_b_gw}}/submodels/dXJuOmRhdGFzcGFjZTpiOnNtOnRlY2huaWNhbC1kYXRh"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var raw = JSON.stringify(pm.response.json());",
+                  "pm.expect(raw).to.include('GearRatio');",
+                  "pm.expect(raw).to.include('10:1');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor C - Query Shells (Public, No Auth)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_c_gw}}/shells"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var raw = JSON.stringify(pm.response.json());",
+                  "pm.expect(raw).to.include('VibrationSensorAAS');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor C - Query TechnicalData Submodel (Public)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_c_gw}}/submodels/dXJuOmRhdGFzcGFjZTpjOnNtOnRlY2huaWNhbC1kYXRh"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var raw = JSON.stringify(pm.response.json());",
+                  "pm.expect(raw).to.include('SamplingRateKHz');",
+                  "pm.expect(raw).to.include('25.6');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 - Actor D Machine Manufacturer & Simulation Protection",
+      "item": [
+        {
+          "name": "Actor D - Negative: Unauthenticated Query to Simulation Submodel (Must be 401)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_d_gw}}/submodels/dXJuOmRhdGFzcGFjZSdkOnNtOm1hY2hpbmUtc2ltdWxhdGlvbg=="
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401 Unauthorized', function () { pm.response.to.have.status(401); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor D - Negative: Non-Customer (Actor F) Query to Simulation SM (Must be 401 or 403)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_d_gw}}/submodels/dXJuOmRhdGFzcGFjZSdkOnNtOm1hY2hpbmUtc2ltdWxhdGlvbg==",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_f}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Access Denied for Non-Customer Actor F (HTTP 401 or 403)', function () { pm.expect([401, 403]).to.include(pm.response.code); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor D - Authorized Customer E queries Machine Type Shells",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_d_gw}}/shells",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_e}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var raw = JSON.stringify(pm.response.json());",
+                  "pm.expect(raw).to.include('MillingMachineTypeAAS');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor D - Authorized Customer E queries TechnicalData (Integrated A, B, C)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_d_gw}}/submodels/dXJuOmRhdGFzcGFjZSdkOnNtOnRlY2huaWNhbC1kYXRh",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_e}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var raw = JSON.stringify(pm.response.json());",
+                  "pm.expect(raw).to.include('IntegratedMotorRef');",
+                  "pm.expect(raw).to.include('IntegratedGearboxRef');",
+                  "pm.expect(raw).to.include('IntegratedSensorRef');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor D - Authorized Customer E queries Simulation Submodel (200 OK)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_d_gw}}/submodels/dXJuOmRhdGFzcGFjZSdkOnNtOm1hY2hpbmUtc2ltdWxhdGlvbg==",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_e}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });",
+                  "var raw = JSON.stringify(pm.response.json());",
+                  "pm.expect(raw).to.include('KinematicAndThermalFEA');",
+                  "pm.expect(raw).to.include('ToolCenterPointPrecisionMicron');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 - Actor E Access Control (Nameplate vs TimeSeries)",
+      "item": [
+        {
+          "name": "Actor E - Negative: Unauthenticated Query to TimeSeries Submodel (401)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_e_gw}}/submodels/dXJuOmRhdGFzcGFjZTplOnNtOnRpbWVzZXJpZXM="
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401 Unauthorized', function () { pm.response.to.have.status(401); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor E - Partner D queries Nameplate Submodel (200 OK - 'andere sehen Nameplate')",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_e_gw}}/submodels/dXJuOmRhdGFzcGFjZTplOnNtOm5hbWVwbGF0ZQ==",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_d}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });",
+                  "var raw = JSON.stringify(pm.response.json());",
+                  "pm.expect(raw).to.include('Turbine Blade');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor E - Partner D queries TimeSeries Submodel (403 Forbidden - Not Customer)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_e_gw}}/submodels/dXJuOmRhdGFzcGFjZTplOnNtOnRpbWVzZXJpZXM=",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_d}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403 Forbidden', function () { pm.expect([401, 403]).to.include(pm.response.code); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor E - Authorized Customer F queries TimeSeries Submodel (200 OK)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_e_gw}}/submodels/dXJuOmRhdGFzcGFjZTplOnNtOnRpbWVzZXJpZXM=",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_f}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });",
+                  "var raw = JSON.stringify(pm.response.json());",
+                  "pm.expect(raw).to.include('ProcessRecordCount');",
+                  "pm.expect(raw).to.include('AverageMillingTemperatureCelsius');",
+                  "pm.expect(raw).to.include('PeakVibrationRMS');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Actor E - Authorized Customer F queries Nameplate Submodel (200 OK)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_e_gw}}/submodels/dXJuOmRhdGFzcGFjZTplOnNtOm5hbWVwbGF0ZQ==",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_f}}" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

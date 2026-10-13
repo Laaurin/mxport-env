@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>6-Actor Industrial Dataspace | Test Workbench & Security Inspector</title>
+  <meta name="description" content="Interaktive Test-Workbench und Sicherheits-Inspektor für das 6-Akteure Datenraum-Szenario in k3d mit BaSyx AAS, Siemens STS und Keycloak.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Header / Navigation -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-logo">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Dataspace Test Workbench</h1>
+          <p class="subtitle">6-Akteure Fertigungskette & Dynamic RBAC Inspector (k3d / BaSyx / Keycloak)</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Execution Mode Toggle -->
+        <div class="mode-selector">
+          <span class="mode-label">Modus:</span>
+          <div class="toggle-group">
+            <button id="btn-mode-live" class="toggle-btn active" title="Reale HTTP-Anfragen gegen k3d-Cluster">
+              <span class="indicator-dot live"></span> Live Cluster
+            </button>
+            <button id="btn-mode-demo" class="toggle-btn" title="Simulierte Testantworten ohne laufenden Cluster">
+              <span class="indicator-dot demo"></span> Demo Simulation
+            </button>
+          </div>
+        </div>
+
+        <!-- Global Action -->
+        <button id="btn-run-all" class="btn btn-primary glow-pulse">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          Alle Tests ausführen
+        </button>
+      </div>
+    </div>
+
+    <!-- Cluster Nodes Health Bar -->
+    <div class="health-bar">
+      <div class="health-node" id="node-keycloak">
+        <span class="node-dot"></span>
+        <span class="node-name">Keycloak</span>
+        <span class="node-badge">IAM</span>
+      </div>
+      <div class="health-node" id="node-actor-a">
+        <span class="node-dot"></span>
+        <span class="node-name">Akteur A</span>
+        <span class="node-badge public">Public Motor</span>
+      </div>
+      <div class="health-node" id="node-actor-b">
+        <span class="node-dot"></span>
+        <span class="node-name">Akteur B</span>
+        <span class="node-badge public">Public Gearbox</span>
+      </div>
+      <div class="health-node" id="node-actor-c">
+        <span class="node-dot"></span>
+        <span class="node-name">Akteur C</span>
+        <span class="node-badge public">Public Sensor</span>
+      </div>
+      <div class="health-node" id="node-actor-d">
+        <span class="node-dot"></span>
+        <span class="node-name">Akteur D</span>
+        <span class="node-badge secure">Maschine 🔒</span>
+      </div>
+      <div class="health-node" id="node-actor-e">
+        <span class="node-dot"></span>
+        <span class="node-name">Akteur E</span>
+        <span class="node-badge secure">Fertigung 🔒</span>
+      </div>
+      <div class="health-node" id="node-actor-f">
+        <span class="node-dot"></span>
+        <span class="node-name">Akteur F</span>
+        <span class="node-badge">Kunde</span>
+      </div>
+      <button id="btn-ping-health" class="btn-icon" title="Status aller Gateways aktualisieren">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="main-container">
+    <!-- Navigation Tabs -->
+    <nav class="scenario-tabs">
+      <button class="tab-btn active" data-tab="tab-topology">
+        <span class="tab-icon">🗺️</span>
+        <span class="tab-title">Architektur-Topologie</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-scenario-1">
+        <span class="tab-icon">⚙️</span>
+        <span class="tab-title">1. Zulieferer A, B, C (Öffentlich)</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-scenario-2">
+        <span class="tab-icon">🏭</span>
+        <span class="tab-title">2. Akteur D (Maschine & Simulation 🔒)</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-scenario-3">
+        <span class="tab-icon">🔬</span>
+        <span class="tab-title">3. Akteur E (Nameplate vs TimeSeries 🔒)</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-scenario-4">
+        <span class="tab-icon">✈️</span>
+        <span class="tab-title">4. Akteur F (Kunde erhält TimeSeries)</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-runner">
+        <span class="tab-icon">⚡</span>
+        <span class="tab-title">Test-Suite (E2E Runner)</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-tokens">
+        <span class="tab-icon">🔑</span>
+        <span class="tab-title">Token & RBAC Inspector</span>
+      </button>
+    </nav>
+
+    <!-- TAB 0: Topology Map -->
+    <section id="tab-topology" class="tab-content active">
+      <div class="card glass-card">
+        <div class="card-header">
+          <h2>Industrielle Datenraum-Topologie & Informationsfluss</h2>
+          <span class="badge badge-info">IDTA Metamodell V3 & Dynamic RBAC</span>
+        </div>
+        <p class="card-desc">
+          Interaktive Übersicht über alle 6 Akteure entlang der automobilen bzw. industriellen Lieferkette. Klicken Sie auf einen Akteur, um direkt zum entsprechenden Test-Szenario zu springen.
+        </p>
+
+        <!-- Visual Topology Grid -->
+        <div class="topology-grid">
+          <!-- Upstream Suppliers -->
+          <div class="topology-tier">
+            <h3 class="tier-label">Stufe 1: Komponenten-Zulieferer (Öffentliche Produktinformationen)</h3>
+            <div class="tier-actors">
+              <div class="actor-card public" onclick="switchTab('tab-scenario-1')">
+                <div class="actor-badge">Akteur A</div>
+                <h4>Servo-Motor</h4>
+                <div class="actor-submodels">
+                  <span class="sm-tag">Nameplate</span>
+                  <span class="sm-tag">TechnicalData (15 kW)</span>
+                </div>
+                <div class="actor-policy">🌐 Kein Token erforderlich (Public)</div>
+              </div>
+
+              <div class="actor-card public" onclick="switchTab('tab-scenario-1')">
+                <div class="actor-badge">Akteur B</div>
+                <h4>Präzisions-Getriebe</h4>
+                <div class="actor-submodels">
+                  <span class="sm-tag">Nameplate</span>
+                  <span class="sm-tag">TechnicalData (10:1, 450 Nm)</span>
+                </div>
+                <div class="actor-policy">🌐 Kein Token erforderlich (Public)</div>
+              </div>
+
+              <div class="actor-card public" onclick="switchTab('tab-scenario-1')">
+                <div class="actor-badge">Akteur C</div>
+                <h4>Vibrations-Sensor</h4>
+                <div class="actor-submodels">
+                  <span class="sm-tag">Nameplate</span>
+                  <span class="sm-tag">TechnicalData (25.6 kHz)</span>
+                </div>
+                <div class="actor-policy">🌐 Kein Token erforderlich (Public)</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Flow Arrow -->
+          <div class="flow-divider">
+            <span class="flow-line"></span>
+            <span class="flow-text">Akteur D aggregiert und vergleicht Daten von A, B, C</span>
+            <span class="flow-arrow">▼</span>
+          </div>
+
+          <!-- Machine Manufacturer -->
+          <div class="topology-tier">
+            <h3 class="tier-label">Stufe 2: Maschinenhersteller (CNC-Fräszentrum)</h3>
+            <div class="tier-actors single">
+              <div class="actor-card secure" onclick="switchTab('tab-scenario-2')">
+                <div class="actor-badge badge-warning">Akteur D (Maschinenbauer)</div>
+                <h4>MillingMachineTypeAAS (5-Achsen CNC Fräszentrum)</h4>
+                <div class="actor-submodels">
+                  <span class="sm-tag">Nameplate</span>
+                  <span class="sm-tag">TechnicalData (Integriert A, B, C)</span>
+                  <span class="sm-tag protected">SimulationModel (FEA & Kinematik) 🔒</span>
+                </div>
+                <div class="actor-policy">🛡️ Keycloak (actor-d) + Dynamic Security SM: Simulation nur für Kunde E</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Flow Arrow -->
+          <div class="flow-divider">
+            <span class="flow-line"></span>
+            <span class="flow-text">Akteur E kauft Fräsmaschine von D ➔ Erhält Zugriff auf Simulation</span>
+            <span class="flow-arrow">▼</span>
+          </div>
+
+          <!-- Production Plant -->
+          <div class="topology-tier">
+            <h3 class="tier-label">Stufe 3: Bauteilfertigung & differenzierte Datenfreigabe</h3>
+            <div class="tier-actors single">
+              <div class="actor-card secure" onclick="switchTab('tab-scenario-3')">
+                <div class="actor-badge badge-purple">Akteur E (Bauteilfertiger)</div>
+                <h4>TurbineBladeProductAAS (Hochdruck-Turbinenschaufel)</h4>
+                <div class="actor-submodels">
+                  <span class="sm-tag">Nameplate 🌐 (Für alle sichtbar)</span>
+                  <span class="sm-tag protected">TimeSeries (Frästemperatur & Vibration) 🔒</span>
+                </div>
+                <div class="actor-policy">🛡️ Keycloak (actor-e) + Security SM: TimeSeries nur für Kunde F!</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Flow Arrow -->
+          <div class="flow-divider">
+            <span class="flow-line"></span>
+            <span class="flow-text">Akteur F kauft gefertigte Schaufeln ➔ Erhält Zugriff auf TimeSeries</span>
+            <span class="flow-arrow">▼</span>
+          </div>
+
+          <!-- Customer F -->
+          <div class="topology-tier">
+            <h3 class="tier-label">Stufe 4: Endkunde (Triebwerksbauer)</h3>
+            <div class="tier-actors single">
+              <div class="actor-card customer" onclick="switchTab('tab-scenario-4')">
+                <div class="actor-badge badge-emerald">Akteur F (Endkunde / OEM)</div>
+                <h4>CustomerAeroEngineOEM</h4>
+                <div class="actor-submodels">
+                  <span class="sm-tag">Qualitätsprüfung</span>
+                  <span class="sm-tag">TimeSeries Prozessanalyse</span>
+                </div>
+                <div class="actor-policy">🔑 Keycloak (actor-f-client): Besitzt Rolle customer-e</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 1: Scenario 1 - Actors A, B, C (Public) -->
+    <section id="tab-scenario-1" class="tab-content">
+      <div class="card glass-card">
+        <div class="card-header">
+          <h2>Szenario 1: Öffentliche Produktdaten (Akteur A, B, C)</h2>
+          <span class="badge badge-success">Kein Token erforderlich</span>
+        </div>
+        <p class="card-desc">
+          Akteur A (Motor), B (Getriebe) und C (Sensor) stellen ihre Produktinformationen (Nameplate und TechnicalData) öffentlich im Datenraum bereit. Jeder Teilnehmer kann diese Daten ohne Authentifizierung direkt über die standardisierte BaSyx REST-API abfragen.
+        </p>
+
+        <div class="test-cards-grid">
+          <!-- Test Card A -->
+          <div class="test-card" id="card-test-a">
+            <div class="test-card-header">
+              <span class="test-badge">Akteur A</span>
+              <h3>Servomotor AAS & Technische Daten</h3>
+            </div>
+            <p class="test-info">Fragt <code>/shells</code> und <code>/submodels/technical-data</code> ab.</p>
+            <div class="curl-preview">
+              <code>curl -s http://actor-a.localhost/shells</code>
+            </div>
+            <div class="test-actions">
+              <button class="btn btn-secondary" onclick="runSingleTest('test_a_shells')">Shells abrufen</button>
+              <button class="btn btn-secondary" onclick="runSingleTest('test_a_tech')">TechnicalData abrufen</button>
+            </div>
+            <div class="test-result" id="result-test-a">
+              <span class="result-placeholder">Noch nicht ausgeführt</span>
+            </div>
+          </div>
+
+          <!-- Test Card B -->
+          <div class="test-card" id="card-test-b">
+            <div class="test-card-header">
+              <span class="test-badge">Akteur B</span>
+              <h3>Getriebe AAS & Technische Daten</h3>
+            </div>
+            <p class="test-info">Prüft Getriebedaten: Untersetzung 10:1, Drehmoment 450 Nm.</p>
+            <div class="curl-preview">
+              <code>curl -s http://actor-b.localhost/shells</code>
+            </div>
+            <div class="test-actions">
+              <button class="btn btn-secondary" onclick="runSingleTest('test_b_shells')">Shells abrufen</button>
+              <button class="btn btn-secondary" onclick="runSingleTest('test_b_tech')">TechnicalData abrufen</button>
+            </div>
+            <div class="test-result" id="result-test-b">
+              <span class="result-placeholder">Noch nicht ausgeführt</span>
+            </div>
+          </div>
+
+          <!-- Test Card C -->
+          <div class="test-card" id="card-test-c">
+            <div class="test-card-header">
+              <span class="test-badge">Akteur C</span>
+              <h3>Sensor AAS & Technische Daten</h3>
+            </div>
+            <p class="test-info">Prüft Sensordaten: 25.6 kHz Abtastung, IO-Link Schnittstelle.</p>
+            <div class="curl-preview">
+              <code>curl -s http://actor-c.localhost/shells</code>
+            </div>
+            <div class="test-actions">
+              <button class="btn btn-secondary" onclick="runSingleTest('test_c_shells')">Shells abrufen</button>
+              <button class="btn btn-secondary" onclick="runSingleTest('test_c_tech')">TechnicalData abrufen</button>
+            </div>
+            <div class="test-result" id="result-test-c">
+              <span class="result-placeholder">Noch nicht ausgeführt</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: Scenario 2 - Actor D (Machine & Simulation) -->
+    <section id="tab-scenario-2" class="tab-content">
+      <div class="card glass-card">
+        <div class="card-header">
+          <h2>Szenario 2: Akteur D – Schutz des Simulations-Teilmodells</h2>
+          <span class="badge badge-warning">Keycloak + Dynamic Security Submodel</span>
+        </div>
+        <p class="card-desc">
+          Akteur D stellt Fräsmaschinen her und bietet zugehörige Simulationsdateien (CAD/FEA) an – <strong>aber nur für bestimmte Kunden</strong>. Nicht-Kunden oder Aufrufe ohne Token müssen strikt blockiert werden, während Kunde E vollen Zugriff erhält.
+        </p>
+
+        <div class="test-cards-grid">
+          <!-- Test D.1: Negative (No Auth) -->
+          <div class="test-card danger-card">
+            <div class="test-card-header">
+              <span class="test-badge badge-danger">Negativ-Test 1</span>
+              <h3>Abfrage OHNE Token</h3>
+            </div>
+            <p class="test-info">Versucht, das geschützte Simulations-Teilmodell unauthentifiziert abzurufen.</p>
+            <div class="curl-preview">
+              <code>curl -s http://actor-d.localhost/submodels/{simulationId}</code>
+            </div>
+            <div class="expected-badge">Erwartetes Ergebnis: HTTP 401 Unauthorized</div>
+            <div class="test-actions">
+              <button class="btn btn-danger" onclick="runSingleTest('test_d_unauth')">Unauthentifiziert anfragen</button>
+            </div>
+            <div class="test-result" id="result-test-d-unauth">
+              <span class="result-placeholder">Noch nicht ausgeführt</span>
+            </div>
+          </div>
+
+          <!-- Test D.2: Negative (Wrong Customer) -->
+          <div class="test-card danger-card">
+            <div class="test-card-header">
+              <span class="test-badge badge-danger">Negativ-Test 2</span>
+              <h3>Abfrage durch NICHT-Kunde (Akteur F)</h3>
+            </div>
+            <p class="test-info">Akteur F besitzt zwar ein valides Keycloak-Token, ist aber KEIN Kunde von D.</p>
+            <div class="curl-preview">
+              <code>curl -H "Authorization: Bearer &lt;Token_F&gt;" http://actor-d.localhost/...</code>
+            </div>
+            <div class="expected-badge">Erwartetes Ergebnis: HTTP 401 oder 403 Forbidden</div>
+            <div class="test-actions">
+              <button class="btn btn-danger" onclick="runSingleTest('test_d_unauthorized_f')">Mit F-Token anfragen</button>
+            </div>
+            <div class="test-result" id="result-test-d-unauthorized-f">
+              <span class="result-placeholder">Noch nicht ausgeführt</span>
+            </div>
+          </div>
+
+          <!-- Test D.3: Positive (Customer E) -->
+          <div class="test-card success-card">
+            <div class="test-card-header">
+              <span class="test-badge badge-success">Positiv-Test</span>
+              <h3>Abfrage durch autorisierten Kunden (Akteur E)</h3>
+            </div>
+            <p class="test-info">Akteur E hat die Maschine gekauft. Mit E-Token (Rolle: <code>customer-d</code>) wird die Simulation freigegeben.</p>
+            <div class="curl-preview">
+              <code>curl -H "Authorization: Bearer &lt;Token_E&gt;" http://actor-d.localhost/submodels/{simulationId}</code>
+            </div>
+            <div class="expected-badge">Erwartetes Ergebnis: HTTP 200 OK + FEA Simulationsdaten</div>
+            <div class="test-actions">
+              <button class="btn btn-success" onclick="runSingleTest('test_d_auth_e')">Als Kunde E abrufen</button>
+              <button class="btn btn-secondary" onclick="runSingleTest('test_d_tech')">Integrierte A/B/C Daten prüfen</button>
+            </div>
+            <div class="test-result" id="result-test-d-auth-e">
+              <span class="result-placeholder">Noch nicht ausgeführt</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: Scenario 3 - Actor E (Nameplate vs TimeSeries) -->
+    <section id="tab-scenario-3" class="tab-content">
+      <div class="card glass-card">
+        <div class="card-header">
+          <h2>Szenario 3: Akteur E – Differenzierter Zugriff (Nameplate vs. TimeSeries)</h2>
+          <span class="badge badge-purple">Policy Boundary: „Andere sehen nur Nameplate“</span>
+        </div>
+        <p class="card-desc">
+          Akteur E sammelt während der Fertigung Sensordaten in einem <strong>TimeSeries-Teilmodell</strong>. Kunden (wie Akteur F) erhalten vollen Zugriff auf die TimeSeries, während alle anderen Partner im Datenraum (z. B. Akteur D) lediglich das <strong>Nameplate-Teilmodell</strong> einsehen dürfen.
+        </p>
+
+        <div class="test-cards-grid">
+          <!-- Test E.1: Partner D reads Nameplate (Allowed) -->
+          <div class="test-card success-card">
+            <div class="test-card-header">
+              <span class="test-badge badge-info">Partner-Zugriff</span>
+              <h3>Akteur D liest Nameplate von E</h3>
+            </div>
+            <p class="test-info">Öffentlich autorisierter Zugriff für Partner auf Hersteller- und Bauteil-Basisdaten.</p>
+            <div class="curl-preview">
+              <code>curl -H "Authorization: Bearer &lt;Token_D&gt;" http://actor-e.localhost/submodels/{nameplateId}</code>
+            </div>
+            <div class="expected-badge">Erwartetes Ergebnis: HTTP 200 OK (Nameplate sichtbar)</div>
+            <div class="test-actions">
+              <button class="btn btn-secondary" onclick="runSingleTest('test_e_nameplate_d')">Nameplate als D abrufen</button>
+            </div>
+            <div class="test-result" id="result-test-e-nameplate-d">
+              <span class="result-placeholder">Noch nicht ausgeführt</span>
+            </div>
+          </div>
+
+          <!-- Test E.2: Partner D reads TimeSeries (Blocked!) -->
+          <div class="test-card danger-card">
+            <div class="test-card-header">
+              <span class="test-badge badge-danger">Schutz-Prüfung</span>
+              <h3>Akteur D versucht TimeSeries von E zu lesen</h3>
+            </div>
+            <p class="test-info">Akteur D ist kein Kunde von E. Zugriff auf vertrauliche Prozess- und Schwingungsdaten wird verweigert.</p>
+            <div class="curl-preview">
+              <code>curl -H "Authorization: Bearer &lt;Token_D&gt;" http://actor-e.localhost/submodels/{timeSeriesId}</code>
+            </div>
+            <div class="expected-badge">Erwartetes Ergebnis: HTTP 403 Forbidden („Andere sehen nur Nameplate“)</div>
+            <div class="test-actions">
+              <button class="btn btn-danger" onclick="runSingleTest('test_e_timeseries_d')">TimeSeries als D anfragen</button>
+            </div>
+            <div class="test-result" id="result-test-e-timeseries-d">
+              <span class="result-placeholder">Noch nicht ausgeführt</span>
+            </div>
+          </div>
+
+          <!-- Test E.3: Customer F reads TimeSeries (Allowed!) -->
+          <div class="test-card success-card">
+            <div class="test-card-header">
+              <span class="test-badge badge-success">Kunden-Zugriff</span>
+              <h3>Kunde F liest TimeSeries von E</h3>
+            </div>
+            <p class="test-info">Akteur F hat das Bauteil gekauft. Besitzt Rolle <code>customer-e</code> und erhält vollständige Prozesshistorie.</p>
+            <div class="curl-preview">
+              <code>curl -H "Authorization: Bearer &lt;Token_F&gt;" http://actor-e.localhost/submodels/{timeSeriesId}</code>
+            </div>
+            <div class="expected-badge">Erwartetes Ergebnis: HTTP 200 OK (Temperatur & Vibration)</div>
+            <div class="test-actions">
+              <button class="btn btn-success" onclick="runSingleTest('test_e_timeseries_f')">TimeSeries als F abrufen</button>
+            </div>
+            <div class="test-result" id="result-test-e-timeseries-f">
+              <span class="result-placeholder">Noch nicht ausgeführt</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: Scenario 4 - Actor F (End Customer) -->
+    <section id="tab-scenario-4" class="tab-content">
+      <div class="card glass-card">
+        <div class="card-header">
+          <h2>Szenario 4: Akteur F – Qualitätsabnahme & Prozessdaten-Auswertung</h2>
+          <span class="badge badge-emerald">Endkunden-Zertifizierung</span>
+        </div>
+        <p class="card-desc">
+          Akteur F ist Triebwerkshersteller und verifiziert die Fertigungsqualität der gelieferten Turbinenschaufeln anhand der TimeSeries-Daten aus Akteur E's AAS.
+        </p>
+
+        <div class="f-inspection-grid">
+          <div class="metric-card">
+            <div class="metric-title">Frästemperatur (Schnittzone)</div>
+            <div class="metric-value" id="val-f-temp">142.8 °C</div>
+            <div class="metric-status pass">✓ Innerhalb Toleranz (&lt; 160 °C)</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-title">Vibrations-RMS (Spindel)</div>
+            <div class="metric-value" id="val-f-vib">0.45 g</div>
+            <div class="metric-status pass">✓ Keine Resonanzerscheinungen</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-title">Oberflächenrauheit (Ra)</div>
+            <div class="metric-value" id="val-f-ra">0.38 µm</div>
+            <div class="metric-status pass">✓ Luftfahrt-Güteklasse erreicht</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-title">Gesamtdatensätze (Abtastung)</div>
+            <div class="metric-value" id="val-f-count">3,600 Records</div>
+            <div class="metric-status pass">✓ Lückenlose Dokumentation</div>
+          </div>
+        </div>
+
+        <div class="test-actions" style="margin-top: 1.5rem;">
+          <button class="btn btn-primary" onclick="runSingleTest('test_f_full_verify')">Qualitätsnachweis live von Akteur E abrufen</button>
+        </div>
+        <div class="test-result" id="result-test-f-verify" style="margin-top: 1rem;">
+          <span class="result-placeholder">Noch nicht ausgeführt</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: Automated E2E Test Runner -->
+    <section id="tab-runner" class="tab-content">
+      <div class="card glass-card">
+        <div class="card-header">
+          <h2>Automatisierte E2E Testsuite (Gesamtprüfung)</h2>
+          <div>
+            <button id="btn-suite-start" class="btn btn-primary" onclick="runAllTestSuite()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              Gesamte Testsuite starten
+            </button>
+          </div>
+        </div>
+
+        <div class="progress-container">
+          <div class="progress-bar-bg">
+            <div id="suite-progress-bar" class="progress-bar-fill" style="width: 0%;"></div>
+          </div>
+          <div class="progress-stats">
+            <span id="suite-progress-text">Bereit zum Start</span>
+            <span id="suite-progress-count">0 / 14 Tests</span>
+          </div>
+        </div>
+
+        <!-- Table of tests -->
+        <div class="table-responsive">
+          <table class="test-suite-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Szenario & Phase</th>
+                <th>Ziel-Endpunkt</th>
+                <th>Erwartet</th>
+                <th>Status</th>
+                <th>Laufzeit</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="suite-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: Token Inspector & RBAC -->
+    <section id="tab-tokens" class="tab-content">
+      <div class="card glass-card">
+        <div class="card-header">
+          <h2>JWT Token Inspector & Dynamic RBAC Decoder</h2>
+          <span class="badge badge-info">RFC 7519 / OIDC</span>
+        </div>
+        <p class="card-desc">
+          Untersuchen Sie die ausgestellten OAuth2/OIDC Tokens für die Akteure D, E und F. Sehen Sie live, wie Rollen wie <code>customer-d</code> und <code>customer-e</code> übertragen und von BaSyx zur Laufzeit gegen die Sicherheitsregeln evaluiert werden.
+        </p>
+
+        <div class="token-tabs-group">
+          <button class="token-subtab active" onclick="showTokenView('token-view-e')">Akteur E Token (Kunde von D)</button>
+          <button class="token-subtab" onclick="showTokenView('token-view-f')">Akteur F Token (Kunde von E)</button>
+          <button class="token-subtab" onclick="showTokenView('token-view-d')">Akteur D Token (Maschinenbauer)</button>
+        </div>
+
+        <div id="token-view-e" class="token-view-panel active">
+          <div class="token-split">
+            <div class="token-box">
+              <h4>Raw Encoded JWT</h4>
+              <textarea id="raw-jwt-e" readonly placeholder="Token wird bei Ausführung geladen..."></textarea>
+              <button class="btn btn-sm btn-secondary" onclick="fetchTokenManual('actor-e')">Token neu abrufen</button>
+            </div>
+            <div class="token-box">
+              <h4>Decoded Claims (Payload)</h4>
+              <pre id="decoded-jwt-e"><code>Klicken Sie auf 'Token neu abrufen'</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div id="token-view-f" class="token-view-panel">
+          <div class="token-split">
+            <div class="token-box">
+              <h4>Raw Encoded JWT</h4>
+              <textarea id="raw-jwt-f" readonly placeholder="Token wird bei Ausführung geladen..."></textarea>
+              <button class="btn btn-sm btn-secondary" onclick="fetchTokenManual('actor-f')">Token neu abrufen</button>
+            </div>
+            <div class="token-box">
+              <h4>Decoded Claims (Payload)</h4>
+              <pre id="decoded-jwt-f"><code>Klicken Sie auf 'Token neu abrufen'</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div id="token-view-d" class="token-view-panel">
+          <div class="token-split">
+            <div class="token-box">
+              <h4>Raw Encoded JWT</h4>
+              <textarea id="raw-jwt-d" readonly placeholder="Token wird bei Ausführung geladen..."></textarea>
+              <button class="btn btn-sm btn-secondary" onclick="fetchTokenManual('actor-d')">Token neu abrufen</button>
+            </div>
+            <div class="token-box">
+              <h4>Decoded Claims (Payload)</h4>
+              <pre id="decoded-jwt-d"><code>Klicken Sie auf 'Token neu abrufen'</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal for Raw JSON Inspection -->
+  <div id="json-modal" class="modal">
+    <div class="modal-content glass-card">
+      <div class="modal-header">
+        <h3 id="modal-title">Response Inspector</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-meta">
+        <span id="modal-status" class="badge">HTTP ---</span>
+        <span id="modal-url" class="modal-url">---</span>
+      </div>
+      <pre id="modal-body"><code>---</code></pre>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <p>Eclipse BaSyx 2.0 • Siemens STS • Keycloak IAM • IDTA Metamodell V3 • Masterarbeit Laurin Müller</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

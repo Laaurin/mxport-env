@@ -90,33 +90,70 @@ Dank `*.localhost` sind **keine `/etc/hosts`-Einträge erforderlich**:
 
 ---
 
-## 5. Bereitstellung & Testen
+## 5. Verifikation & Testmöglichkeiten
 
-### 5.1 Windows 11 (PowerShell)
+Für die Überprüfung aller Szenarien stehen drei aufeinander abgestimmte Werkzeuge zur Verfügung:
 
-```powershell
-# 1. Cluster starten & alle 6 Akteure bereitstellen
-.\k8s\scripts\cluster-up.ps1
+### Option A: Interaktive Web UI (Dataspace Test Workbench) ⭐ *(Empfohlen)*
 
-# 2. Automatisierte End-to-End Testsuite ausführen
-.\k8s\tests\verify_6actor_chain.ps1
+Eine grafische Test- und Inspektions-Oberfläche mit Live-Topologie, Schritt-für-Schritt-Szenarien-Explorer, Token-Decoder und 1-Klick Test-Runner:
 
-# 3. Cluster stoppen
-.\k8s\scripts\cluster-down.ps1
-```
+* **Auf macOS / Linux starten**:
+  ```bash
+  ./k8s/scripts/workbench.sh
+  ```
+* **Auf Windows 11 (PowerShell) starten**:
+  ```powershell
+  .\k8s\scripts\workbench.ps1
+  ```
+* **Im Browser öffnen**: `http://localhost:3333`
+* **Features**:
+  * **Topologie-Map**: Live-Übersicht aller 6 Akteure mit Gateway-Health-Pings.
+  * **Schritt-für-Schritt-Walkthrough**: Jedes Szenario (A/B/C öffentlich, D Simulation geschützt, E Nameplate vs. TimeSeries) einzeln per Klick ausführen und Live-JSON-Payloads inspizieren.
+  * **E2E Test-Runner**: Führt alle 14 Testfälle mit Live-Fortschrittsbalken und detaillierten Laufzeiten aus.
+  * **Token & RBAC Inspector**: Dekodiert JWT-Claims und zeigt, wie Rollen (`customer-d`, `customer-e`, `partner-d`) übertragen werden.
+  * **Demo-Modus**: Umschaltbar auf simulierte Antworten, um die UI und Testfälle auch ohne gestarteten Cluster sofort durchzugehen.
 
-### 5.2 macOS / Linux (Bash)
+---
 
-```bash
-# 1. Cluster starten & alle 6 Akteure bereitstellen
-./k8s/scripts/cluster-up.sh
+### Option B: Postman & Newman
 
-# 2. Automatisierte End-to-End Testsuite ausführen
-./k8s/tests/verify_6actor_chain.sh
+Die vollständige Testsuite als standardisierte Postman Collection (v2.1):
 
-# 3. Cluster stoppen
-./k8s/scripts/cluster-down.sh
-```
+* **Collection-Datei**: [k8s/postman/6-Actor-Dataspace.postman_collection.json](file:///Users/laurinmuller/Documents/Studium/masterarbeit/mxport-env/k8s/postman/6-Actor-Dataspace.postman_collection.json)
+* **Direkt per CLI mit Newman ausführen**:
+  ```bash
+  npx -y newman run k8s/postman/6-Actor-Dataspace.postman_collection.json
+  ```
+* **In Postman UI**: Datei importieren und über den Collection Runner starten.
+
+---
+
+### Option C: Automatisierte CLI Testskripte
+
+* **Windows 11 (PowerShell)**:
+  ```powershell
+  # 1. Cluster starten & alle 6 Akteure bereitstellen
+  .\k8s\scripts\cluster-up.ps1
+
+  # 2. Testsuite ausführen
+  .\k8s\tests\verify_6actor_chain.ps1
+
+  # 3. Cluster stoppen
+  .\k8s\scripts\cluster-down.ps1
+  ```
+
+* **macOS / Linux (Bash)**:
+  ```bash
+  # 1. Cluster starten & bereitstellen
+  ./k8s/scripts/cluster-up.sh
+
+  # 2. Testsuite ausführen
+  ./k8s/tests/verify_6actor_chain.sh
+
+  # 3. Cluster stoppen
+  ./k8s/scripts/cluster-down.sh
+  ```
 
 ---
 
