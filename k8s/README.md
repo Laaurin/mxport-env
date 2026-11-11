@@ -80,13 +80,14 @@ Dank `*.localhost` sind **keine `/etc/hosts`-Einträge erforderlich**:
 
 | Komponente / Akteur | Ingress URL | Zweck / Authentifizierung |
 |---|---|---|
+| **Company Lookup** | `http://lookup.localhost/api/v2/companies` | Zentraler Factory-X Discovery Service (Regex-basiertes Asset-ID Lookup `?asset_id=...`) |
 | **Keycloak** | `http://keycloak.localhost` | Identity Provider (Realms: `BaSyx`, `actor-d`, `actor-e`, `actor-f`) |
-| **Akteur A** | `http://actor-a.localhost` | Public AAS Repo (Servomotor Produktdaten) |
-| **Akteur B** | `http://actor-b.localhost` | Public AAS Repo (Getriebe Produktdaten) |
-| **Akteur C** | `http://actor-c.localhost` | Public AAS Repo (Sensor Produktdaten) |
-| **Akteur D** | `http://actor-d.localhost` | Maschinenbauer (Geschützte Simulationsdaten) |
-| **Akteur E** | `http://actor-e.localhost` | Bauteilfertiger (Öffentliche Nameplate, geschützte TimeSeries) |
-| **Akteur F** | `http://actor-f.localhost` | Kunde von Akteur E |
+| **Akteur A** | `http://actor-a.localhost` | Public AAS Repo (Servomotor Produktdaten, Pattern `^urn:dataspace:a:`) |
+| **Akteur B** | `http://actor-b.localhost` | Public AAS Repo (Getriebe Produktdaten, Pattern `^urn:dataspace:b:`) |
+| **Akteur C** | `http://actor-c.localhost` | Public AAS Repo (Sensor Produktdaten, Pattern `^urn:dataspace:c:`) |
+| **Akteur D** | `http://actor-d.localhost` | Maschinenbauer AAS Repo (Geschützte Simulationsdaten, Pattern `^urn:dataspace:d:`) |
+| **Akteur E** | `http://actor-e.localhost` | Bauteilfertiger AAS Repo (Nameplate für Partner, geschützte TimeSeries für Kunden, Pattern `^urn:dataspace:e:`) |
+| **Akteur F** | `http://actor-f.localhost` | Kunde von Akteur E (Pattern `^urn:dataspace:f:`) |
 
 ---
 

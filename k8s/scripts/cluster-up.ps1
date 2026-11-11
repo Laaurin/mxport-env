@@ -38,17 +38,41 @@ if (-not $gwInspect) {
     Write-Host "  --> Building mxport-leo-gateway:local..." -ForegroundColor Gray
     docker build -t mxport-leo-gateway:local -f "$RootDir\provider\gateway\Dockerfile" "$RootDir\provider\gateway"
 }
+$stsInspect = docker image inspect mxport-leo-sts:local 2>$null
+if (-not $stsInspect) {
+    Write-Host "  --> Building mxport-leo-sts:local..." -ForegroundColor Gray
+    docker build -t mxport-leo-sts:local "$RootDir\repos\mxport-leo-token-exchange"
+}
+$lookupInspect = docker image inspect mxport-leo-company-lookup:local 2>$null
+if (-not $lookupInspect) {
+    Write-Host "  --> Building mxport-leo-company-lookup:local..." -ForegroundColor Gray
+    docker build -t mxport-leo-company-lookup:local "$RootDir\repos\mxport-leo-company-lookup"
+}
+$pgInspect = docker image inspect postgres:16-alpine 2>$null
+if (-not $pgInspect) {
+    Write-Host "  --> Pulling postgres:16-alpine..." -ForegroundColor Gray
+    docker pull postgres:16-alpine
+}
 
 Write-Host ">>> Importing images into k3d cluster '$ClusterName'..." -ForegroundColor Cyan
-k3d image import `
-  mxport-leo-gateway:local `
-  mxport-leo-sts:local `
-  eclipsebasyx/aas-environment:2.0.0-SNAPSHOT `
-  eclipsebasyx/submodel-repository:2.0.0-SNAPSHOT `
-  quay.io/keycloak/keycloak:25.0 `
-  mongo:8 `
-  curlimages/curl:8.5.0 `
-  -c $ClusterName
+$images = @(
+  "mxport-leo-gateway:local",
+  "mxport-leo-sts:local",
+  "mxport-leo-company-lookup:local",
+  "postgres:16-alpine",
+  "eclipsebasyx/aas-environment:2.0.0-SNAPSHOT",
+  "eclipsebasyx/submodel-repository:2.0.0-SNAPSHOT",
+  "eclipsebasyx/aas-gui:SNAPSHOT",
+  "quay.io/keycloak/keycloak:25.0",
+  "mongo:8",
+  "curlimages/curl:8.5.0"
+)
+foreach ($img in $images) {
+    $exists = docker image inspect $img 2>$null
+    if ($exists) {
+        k3d image import $img -c $ClusterName
+    }
+}
 
 Write-Host ">>> Deploying Helm charts..." -ForegroundColor Cyan
 & "$ScriptDir\deploy-all.ps1"

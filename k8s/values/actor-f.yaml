@@ -10,6 +10,16 @@ ingress:
   enabled: true
   host: "actor-f.localhost"
 
+viewer:
+  enabled: true
+  security:
+    type: "oauth2"
+    config:
+      issuer: "http://keycloak.localhost/realms/actor-f"
+      clientId: "actor-f-client"
+      clientSecret: "actor-f-secret-12345"
+      flow: "client_credentials"
+
 secsm:
   enabled: false
 

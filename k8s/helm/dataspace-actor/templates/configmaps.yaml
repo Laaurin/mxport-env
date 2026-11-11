@@ -60,19 +60,53 @@ data:
 
         # Inbound proxy: Authenticate incoming customer requests & forward to local AAS
         location / {
-          {{- if .Values.sts.enabled }}
-          access_by_lua_block {
-            require("sts").exchange({
-              sts_url        = "http://{{ .Release.Name }}-sts.{{ .Release.Namespace }}.svc.cluster.local:9050/sts/token",
-              target_service = "{{ .Release.Name }}-aas",
-            })
+          if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' $http_origin always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD' always;
+            add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, Origin, X-Requested-With' always;
+            add_header 'Access-Control-Allow-Credentials' 'true' always;
+            add_header 'Content-Length' 0;
+            add_header 'Content-Type' 'text/plain; charset=utf-8';
+            return 204;
           }
-          {{- end }}
+
+          add_header 'Access-Control-Allow-Origin' $http_origin always;
+          add_header 'Access-Control-Allow-Credentials' 'true' always;
+          add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, Origin, X-Requested-With, X-Dataspace-Target-Host' always;
+          add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD' always;
+          add_header 'Access-Control-Expose-Headers' 'X-Dataspace-Source-Token, X-Dataspace-Exchanged-Token' always;
 
           set $upstream "http://{{ .Release.Name }}-aas.{{ .Release.Namespace }}.svc.cluster.local:8081";
+          set $upstream_host $host;
+
+          access_by_lua_block {
+            require("sts").route_request({
+              local_actor    = "{{ .Values.actor.name }}",
+              namespace      = "{{ .Release.Namespace }}",
+              lookup_url     = "http://company-lookup.{{ .Release.Namespace }}.svc.cluster.local:50102/api/v2/companies",
+              {{- if .Values.sts.enabled }}
+              sts_url        = "http://{{ .Release.Name }}-sts.{{ .Release.Namespace }}.svc.cluster.local:9050/sts/token",
+              target_service = "{{ .Release.Name }}-aas",
+              {{- end }}
+            })
+          }
+
+          header_filter_by_lua_block {
+            if ngx.ctx.source_token then
+              ngx.header["X-Dataspace-Source-Token"] = ngx.ctx.source_token
+            end
+            if ngx.ctx.exchanged_token then
+              ngx.header["X-Dataspace-Exchanged-Token"] = ngx.ctx.exchanged_token
+            end
+          }
+
           proxy_pass $upstream;
-          proxy_set_header Host $host;
+          proxy_set_header Host $upstream_host;
           proxy_set_header X-Real-IP $remote_addr;
+          proxy_hide_header Access-Control-Allow-Origin;
+          proxy_hide_header Access-Control-Allow-Credentials;
+          proxy_hide_header Access-Control-Allow-Headers;
+          proxy_hide_header Access-Control-Allow-Methods;
         }
       }
     }
@@ -81,6 +115,144 @@ data:
     local _M = {}
     local http  = require("resty.http")
     local cjson = require("cjson")
+
+    local function decode_b64_id(raw)
+      if not raw or raw == "" then return nil end
+      local unescaped = ngx.unescape_uri(raw)
+      local std = string.gsub(string.gsub(unescaped, "%-", "+"), "_", "/")
+      local rem = #std % 4
+      if rem == 2 then
+        std = std .. "=="
+      elseif rem == 3 then
+        std = std .. "="
+      end
+      return ngx.decode_base64(std), unescaped
+    end
+
+    local function to_b64url(raw)
+      local unescaped = ngx.unescape_uri(raw)
+      local b64url = string.gsub(string.gsub(unescaped, "%+", "-"), "/", "_")
+      return string.gsub(b64url, "=+$", "")
+    end
+
+    local VIEWER_CREDENTIALS = {
+      ["d"] = { realm = "actor-d", client_id = "actor-d-client", client_secret = "actor-d-secret-12345" },
+      ["e"] = { realm = "actor-e", client_id = "actor-e-client", client_secret = "actor-e-secret-12345" },
+      ["f"] = { realm = "actor-f", client_id = "actor-f-client", client_secret = "actor-f-secret-12345" },
+    }
+
+    local function ensure_viewer_auth(opts)
+      local origin = ngx.req.get_headers()["Origin"] or ngx.req.get_headers()["Referer"] or ""
+      local viewer_actor = string.match(origin, "^https?://viewer%-actor%-([def])%.localhost")
+        or string.match(origin, "^https?://viewer%-([def])%.localhost")
+
+      if not viewer_actor then
+        local auth = ngx.req.get_headers()["Authorization"]
+        if auth and string.match(auth, "^[Bb]earer%s+.+$") then
+          return auth
+        end
+        return nil
+      end
+
+      local creds = VIEWER_CREDENTIALS[viewer_actor]
+      if not creds then
+        return nil
+      end
+
+      local cache = ngx.shared[opts.cache_name or "sts_token_cache"]
+      local cache_key = "kc_viewer_tok_v2:" .. viewer_actor
+      local kc_token = cache and cache:get(cache_key)
+
+      if not kc_token then
+        local ns = opts.namespace or "dataspace"
+        local kc_url = "http://keycloak." .. ns .. ".svc.cluster.local:8080/realms/" .. creds.realm .. "/protocol/openid-connect/token"
+        local httpc = http.new()
+        local res, err = httpc:request_uri(kc_url, {
+          method  = "POST",
+          headers = {
+            ["Content-Type"] = "application/x-www-form-urlencoded",
+            ["Host"]         = "keycloak.localhost",
+          },
+          body    = "grant_type=client_credentials"
+            .. "&client_id=" .. ngx.escape_uri(creds.client_id)
+            .. "&client_secret=" .. ngx.escape_uri(creds.client_secret),
+        })
+        if res and res.status == 200 and res.body then
+          local ok, data = pcall(cjson.decode, res.body)
+          if ok and data and data.access_token then
+            kc_token = data.access_token
+            local ttl = math.max(30, (tonumber(data.expires_in) or 300) - 30)
+            if cache then cache:set(cache_key, kc_token, ttl) end
+          end
+        else
+          ngx.log(ngx.WARN, "sts.ensure_viewer_auth: failed to obtain viewer token for actor-", viewer_actor, ": ", err or (res and res.status))
+        end
+      end
+
+      if kc_token then
+        local bearer = "Bearer " .. kc_token
+        ngx.req.set_header("Authorization", bearer)
+        return bearer
+      end
+      return nil
+    end
+
+    function _M.route_request(opts)
+      opts = opts or {}
+      ensure_viewer_auth(opts)
+      local uri = ngx.var.uri or ""
+      local b64_seg = string.match(uri, "^/shells/([^/]+)") or string.match(uri, "^/submodels/([^/]+)")
+
+      if b64_seg then
+        local decoded_urn = decode_b64_id(b64_seg)
+        local actor_short = string.gsub(opts.local_actor or "", "^actor%-", "")
+        local local_prefix = "urn:dataspace:" .. actor_short .. ":"
+
+        if decoded_urn and string.sub(decoded_urn, 1, 14) == "urn:dataspace:" and string.sub(decoded_urn, 1, #local_prefix) ~= local_prefix then
+          local b64url = to_b64url(b64_seg)
+          local cache = ngx.shared[opts.cache_name or "sts_token_cache"]
+          local cache_key = "lookup_gw:" .. b64url
+          local resolved_actor = cache and cache:get(cache_key)
+
+          if not resolved_actor and opts.lookup_url then
+            local httpc = http.new()
+            local lookup_req_url = opts.lookup_url .. "?asset_id=" .. ngx.escape_uri(b64url)
+            ngx.log(ngx.INFO, "sts.route_request: resolving foreign URN ", decoded_urn, " via Company Lookup: ", lookup_req_url)
+            local res, err = httpc:request_uri(lookup_req_url, { method = "GET" })
+            if res and res.status == 200 and res.body then
+              local ok, data = pcall(cjson.decode, res.body)
+              if ok and data and type(data.result) == "table" and data.result[1] and type(data.result[1].endpoints) == "table" then
+                for _, ep in ipairs(data.result[1].endpoints) do
+                  local href = ep and ep.protocolInformation and ep.protocolInformation.href
+                  if type(href) == "string" then
+                    local m = string.match(href, "^https?://actor%-([a-z0-9%-]+)%.localhost")
+                    if m then
+                      resolved_actor = m
+                      if cache then cache:set(cache_key, resolved_actor, 60) end
+                      break
+                    end
+                  end
+                end
+              end
+            else
+              ngx.log(ngx.WARN, "sts.route_request: Company Lookup failed for ", decoded_urn, ": ", err or (res and res.status))
+            end
+          end
+
+          if resolved_actor then
+            local ns = opts.namespace or "dataspace"
+            ngx.var.upstream = "http://actor-" .. resolved_actor .. "-gateway." .. ns .. ".svc.cluster.local:80"
+            ngx.var.upstream_host = "actor-" .. resolved_actor .. ".localhost"
+            ngx.log(ngx.INFO, "sts.route_request: proxying foreign URN ", decoded_urn, " to ", ngx.var.upstream)
+            return
+          end
+        end
+      end
+
+      if opts.sts_url then
+        _M.exchange(opts)
+      end
+    end
 
     function _M.exchange(opts)
       opts = opts or {}
@@ -140,6 +312,8 @@ data:
         cache:set(cache_key, target_token, tonumber(data.expires_in) or default_ttl)
       end
 
+      ngx.ctx.source_token = source_token
+      ngx.ctx.exchanged_token = target_token
       ngx.req.set_header("Authorization", "Bearer " .. target_token)
     end
 
@@ -217,6 +391,7 @@ data:
         sub: sub
         scope: scope
         roles: roles
+        realm_access: realm_access
     ---
     !!com.siemens.iam.exchange.core.filter.SetExpiryFilter
       issuer: http://keycloak:8080/realms/{{ .Values.actor.name }}
@@ -227,6 +402,7 @@ data:
       issuer: http://keycloak:8080/realms/{{ .Values.actor.name }}
       claimsMap:
         environment: {{ .Values.actor.name }}
+        aud: {{ .Release.Name }}-aas
     ---
     !!com.siemens.iam.exchange.core.filter.ClaimsCopyFilter
       issuer: http://keycloak.localhost/realms/{{ .Values.actor.name }}
@@ -234,6 +410,7 @@ data:
         sub: sub
         scope: scope
         roles: roles
+        realm_access: realm_access
     ---
     !!com.siemens.iam.exchange.core.filter.SetExpiryFilter
       issuer: http://keycloak.localhost/realms/{{ .Values.actor.name }}
@@ -244,6 +421,7 @@ data:
       issuer: http://keycloak.localhost/realms/{{ .Values.actor.name }}
       claimsMap:
         environment: {{ .Values.actor.name }}
+        aud: {{ .Release.Name }}-aas
     {{- range .Values.sts.trustedIssuers }}
     ---
     # Inbound tokens from partner {{ .name }}
@@ -253,6 +431,7 @@ data:
         sub: sub
         scope: scope
         roles: roles
+        realm_access: realm_access
     ---
     !!com.siemens.iam.exchange.core.filter.SetExpiryFilter
       issuer: {{ .issuer }}
@@ -263,10 +442,7 @@ data:
       issuer: {{ .issuer }}
       claimsMap:
         environment: {{ $.Values.actor.name }}
-    ---
-    !!com.siemens.iam.exchange.sample.filter.BasyxFilter
-      issuer: {{ .issuer }}
-      targetAudience: {{ $.Release.Name }}-aas
+        aud: {{ $.Release.Name }}-aas
     {{- end }}
 {{- end }}
 {{- if .Values.secsm.enabled }}

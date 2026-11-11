@@ -1,0 +1,144 @@
+{{- if .Values.viewer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-gui
+  labels:
+    app: {{ .Release.Name }}-gui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-gui
+  template:
+    metadata:
+      annotations:
+        checksum/gui-config: {{ include (print $.Template.BasePath "/configmaps.yaml") . | sha256sum }}-v4
+      labels:
+        app: {{ .Release.Name }}-gui
+    spec:
+      containers:
+        - name: aas-gui
+          image: eclipsebasyx/aas-gui:SNAPSHOT
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: ENDPOINT_CONFIG_AVAILABLE
+              value: "false"
+            - name: ALLOW_EDITING
+              value: "true"
+            - name: ALLOW_UPLOADING
+              value: "true"
+            - name: ALLOW_LOGOUT
+              value: "true"
+          volumeMounts:
+            - name: infra-config
+              mountPath: /basyx-infra.yml
+              subPath: basyx-infra.yml
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 16Mi
+      volumes:
+        - name: infra-config
+          configMap:
+            name: {{ .Release.Name }}-gui-infra-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-gui
+  labels:
+    app: {{ .Release.Name }}-gui
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http
+  selector:
+    app: {{ .Release.Name }}-gui
+---
+{{- if .Values.viewer.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-gui-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+    - host: {{ .Values.viewer.ingress.host | default (printf "viewer-%s.localhost" (.Values.actor.name | replace "actor-" "")) }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-gui
+                port:
+                  number: 3000
+    - host: {{ printf "viewer-%s.localhost" .Values.actor.name }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-gui
+                port:
+                  number: 3000
+---
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-gui-infra-config
+  labels:
+    app: {{ .Release.Name }}-gui
+data:
+  basyx-infra.yml: |
+    infrastructures:
+      default: "{{ .Values.actor.name }}-v4"
+      {{ .Values.actor.name }}-v4:
+        name: "{{ .Values.actor.displayName }} (Local AAS Repo)"
+        trustedOrigins:
+          - "http://{{ .Values.viewer.ingress.host | default (printf "viewer-%s.localhost" (.Values.actor.name | replace "actor-" "")) }}"
+          - "http://{{ printf "viewer-%s.localhost" .Values.actor.name }}"
+          - "http://viewer-a.localhost"
+          - "http://viewer-b.localhost"
+          - "http://viewer-c.localhost"
+          - "http://viewer-d.localhost"
+          - "http://viewer-e.localhost"
+          - "http://viewer-f.localhost"
+          - "http://actor-a.localhost"
+          - "http://actor-b.localhost"
+          - "http://actor-c.localhost"
+          - "http://actor-d.localhost"
+          - "http://actor-e.localhost"
+          - "http://actor-f.localhost"
+          - "http://lookup.localhost"
+          - "http://keycloak.localhost"
+          - "http://localhost:5173"
+          - "http://localhost"
+        security:
+          type: none
+        components:
+          aasRepository:
+            baseUrl: "http://{{ .Values.ingress.host }}/shells"
+          submodelRepository:
+            baseUrl: "http://{{ .Values.ingress.host }}/submodels"
+          companyLookup:
+            baseUrl: "http://lookup.localhost/api/v2"
+          AASRepo:
+            baseUrl: "http://{{ .Values.ingress.host }}/shells"
+          SubmodelRepo:
+            baseUrl: "http://{{ .Values.ingress.host }}/submodels"
+          CompanyLookup:
+            baseUrl: "http://lookup.localhost/api/v2"
+{{- end }}

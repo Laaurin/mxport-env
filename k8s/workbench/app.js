@@ -18,8 +18,8 @@ const CONFIG = {
     aTech: 'dXJuOmRhdGFzcGFjZTphOnNtOnRlY2huaWNhbC1kYXRh',
     bTech: 'dXJuOmRhdGFzcGFjZTpiOnNtOnRlY2huaWNhbC1kYXRh',
     cTech: 'dXJuOmRhdGFzcGFjZTpjOnNtOnRlY2huaWNhbC1kYXRh',
-    dTech: 'dXJuOmRhdGFzcGFjZSdkOnNtOnRlY2huaWNhbC1kYXRh',
-    dSim:  'dXJuOmRhdGFzcGFjZSdkOnNtOm1hY2hpbmUtc2ltdWxhdGlvbg==',
+    dTech: 'dXJuOmRhdGFzcGFjZTpkOnNtOnRlY2huaWNhbC1kYXRh',
+    dSim:  'dXJuOmRhdGFzcGFjZTpkOnNtOm1hY2hpbmUtc2ltdWxhdGlvbg==',
     eNp:   'dXJuOmRhdGFzcGFjZTplOnNtOm5hbWVwbGF0ZQ==',
     eTs:   'dXJuOmRhdGFzcGFjZTplOnNtOnRpbWVzZXJpZXM='
   }

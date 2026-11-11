@@ -12,6 +12,16 @@ ingress:
   enabled: true
   host: "actor-d.localhost"
 
+viewer:
+  enabled: true
+  security:
+    type: "oauth2"
+    config:
+      issuer: "http://keycloak.localhost/realms/actor-d"
+      clientId: "actor-d-client"
+      clientSecret: "actor-d-secret-12345"
+      flow: "client_credentials"
+
 secsm:
   enabled: true
 
@@ -53,6 +63,12 @@ sts:
     - name: actor-e-keycloak-host
       issuer: http://keycloak.localhost/realms/actor-e
       jwksUri: "http://keycloak:8080/realms/actor-e/protocol/openid-connect/certs"
+    - name: actor-f-keycloak
+      issuer: http://keycloak:8080/realms/actor-f
+      jwksUri: "http://keycloak:8080/realms/actor-f/protocol/openid-connect/certs"
+    - name: actor-f-keycloak-host
+      issuer: http://keycloak.localhost/realms/actor-f
+      jwksUri: "http://keycloak:8080/realms/actor-f/protocol/openid-connect/certs"
 
 rbac:
   enabled: true
@@ -80,6 +96,19 @@ rbac:
         aasIds: "*"
         submodelIds: "*"
         conceptDescriptionIds: "*"
+    # Owner role (Actor D itself)
+    - role: "partner-d"
+      action: ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"]
+      targetInformation:
+        "@type": "aas"
+        aasIds: "*"
+    - role: "partner-d"
+      action: ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"]
+      targetInformation:
+        "@type": "submodel"
+        submodelIds: "*"
+        submodelElementIdShortPaths: "*"
+    # Customer E: Full READ access to MachineTypeAAS including Simulation Submodel
     - role: "customer-d"
       action: ["READ"]
       targetInformation:
@@ -94,3 +123,19 @@ rbac:
           - "urn:dataspace:d:sm:nameplate"
           - "urn:dataspace:d:sm:technical-data"
           - "urn:dataspace:d:sm:machine-simulation"
+        submodelElementIdShortPaths: "*"
+    # Other partners (e.g. Actor F): Access to Nameplate & TechnicalData ONLY (Simulation blocked with 403)
+    - role: "partner-f"
+      action: ["READ"]
+      targetInformation:
+        "@type": "aas"
+        aasIds:
+          - "urn:dataspace:d:aas:machine-type-001"
+    - role: "partner-f"
+      action: ["READ"]
+      targetInformation:
+        "@type": "submodel"
+        submodelIds:
+          - "urn:dataspace:d:sm:nameplate"
+          - "urn:dataspace:d:sm:technical-data"
+        submodelElementIdShortPaths: "*"

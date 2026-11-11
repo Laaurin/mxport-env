@@ -24,3 +24,10 @@ gateway:
 ingress:
   enabled: true
   host: "actor.localhost"
+
+viewer:
+  enabled: true
+  ingress:
+    enabled: true
+    host: ""
+  security: {}

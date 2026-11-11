@@ -7,19 +7,20 @@
   },
   "variable": [
     { "key": "keycloak_base", "value": "http://keycloak.localhost" },
-    { "key": "actor_a_gw", "value": "http://actor-a.localhost" },
-    { "key": "actor_b_gw", "value": "http://actor-b.localhost" },
-    { "key": "actor_c_gw", "value": "http://actor-c.localhost" },
-    { "key": "actor_d_gw", "value": "http://actor-d.localhost" },
-    { "key": "actor_e_gw", "value": "http://actor-e.localhost" },
-    { "key": "actor_f_gw", "value": "http://actor-f.localhost" },
+    { "key": "lookup_base", "value": "http://lookup.localhost/api/v2" },
+    { "key": "actor_a_gw", "value": "" },
+    { "key": "actor_b_gw", "value": "" },
+    { "key": "actor_c_gw", "value": "" },
+    { "key": "actor_d_gw", "value": "" },
+    { "key": "actor_e_gw", "value": "" },
+    { "key": "actor_f_gw", "value": "" },
     { "key": "token_d", "value": "" },
     { "key": "token_e", "value": "" },
     { "key": "token_f", "value": "" }
   ],
   "item": [
     {
-      "name": "0 - Health Checks",
+      "name": "0 - Discovery (Company Lookup) & Health Checks",
       "item": [
         {
           "name": "Keycloak Health (BaSyx)",
@@ -34,6 +35,132 @@
                 "exec": [
                   "pm.test('Status code is 200', function () { pm.response.to.have.status(200); });",
                   "pm.test('Issuer is valid', function () { var j = pm.response.json(); pm.expect(j.issuer).to.include('/realms/BaSyx'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lookup Actor A Endpoint by Asset URN",
+          "request": {
+            "method": "GET",
+            "url": "{{lookup_base}}/companies?asset_id=dXJuOmRhdGFzcGFjZTphOmFhczpzZXJ2by1tb3Rvci0wMDE"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Lookup Status 200', function () { pm.response.to.have.status(200); });",
+                  "var j = pm.response.json();",
+                  "var href = j.result[0].endpoints[0].protocolInformation.href.replace(/\\/shells$/, '');",
+                  "pm.collectionVariables.set('actor_a_gw', href);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lookup Actor B Endpoint by Asset URN",
+          "request": {
+            "method": "GET",
+            "url": "{{lookup_base}}/companies?asset_id=dXJuOmRhdGFzcGFjZTpiOmFhczpnZWFyYm94LTAwMQ"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Lookup Status 200', function () { pm.response.to.have.status(200); });",
+                  "var j = pm.response.json();",
+                  "var href = j.result[0].endpoints[0].protocolInformation.href.replace(/\\/shells$/, '');",
+                  "pm.collectionVariables.set('actor_b_gw', href);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lookup Actor C Endpoint by Asset URN",
+          "request": {
+            "method": "GET",
+            "url": "{{lookup_base}}/companies?asset_id=dXJuOmRhdGFzcGFjZTpjOmFhczpzZW5zb3ItMDAx"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Lookup Status 200', function () { pm.response.to.have.status(200); });",
+                  "var j = pm.response.json();",
+                  "var href = j.result[0].endpoints[0].protocolInformation.href.replace(/\\/shells$/, '');",
+                  "pm.collectionVariables.set('actor_c_gw', href);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lookup Actor D Endpoint by Asset URN",
+          "request": {
+            "method": "GET",
+            "url": "{{lookup_base}}/companies?asset_id=dXJuOmRhdGFzcGFjZTpkOmFhczptYWNoaW5lLXR5cGUtMDAx"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Lookup Status 200', function () { pm.response.to.have.status(200); });",
+                  "var j = pm.response.json();",
+                  "var href = j.result[0].endpoints[0].protocolInformation.href.replace(/\\/shells$/, '');",
+                  "pm.collectionVariables.set('actor_d_gw', href);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lookup Actor E Endpoint by Asset URN",
+          "request": {
+            "method": "GET",
+            "url": "{{lookup_base}}/companies?asset_id=dXJuOmRhdGFzcGFjZTplOmFhczpwcm9kdWNlZC1wYXJ0LTAwMQ"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Lookup Status 200', function () { pm.response.to.have.status(200); });",
+                  "var j = pm.response.json();",
+                  "var href = j.result[0].endpoints[0].protocolInformation.href.replace(/\\/shells$/, '');",
+                  "pm.collectionVariables.set('actor_e_gw', href);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lookup Actor F Endpoint by Asset URN",
+          "request": {
+            "method": "GET",
+            "url": "{{lookup_base}}/companies?asset_id=dXJuOmRhdGFzcGFjZTpmOmFhczpjdXN0b21lci1wcm9maWxlLTAwMQ"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Lookup Status 200', function () { pm.response.to.have.status(200); });",
+                  "var j = pm.response.json();",
+                  "var href = j.result[0].endpoints[0].protocolInformation.href.replace(/\\/shells$/, '');",
+                  "pm.collectionVariables.set('actor_f_gw', href);"
                 ],
                 "type": "text/javascript"
               }
@@ -304,7 +431,7 @@
           "name": "Actor D - Negative: Unauthenticated Query to Simulation Submodel (Must be 401)",
           "request": {
             "method": "GET",
-            "url": "{{actor_d_gw}}/submodels/dXJuOmRhdGFzcGFjZSdkOnNtOm1hY2hpbmUtc2ltdWxhdGlvbg=="
+            "url": "{{actor_d_gw}}/submodels/dXJuOmRhdGFzcGFjZTpkOnNtOm1hY2hpbmUtc2ltdWxhdGlvbg=="
           },
           "event": [
             {
@@ -322,7 +449,7 @@
           "name": "Actor D - Negative: Non-Customer (Actor F) Query to Simulation SM (Must be 401 or 403)",
           "request": {
             "method": "GET",
-            "url": "{{actor_d_gw}}/submodels/dXJuOmRhdGFzcGFjZSdkOnNtOm1hY2hpbmUtc2ltdWxhdGlvbg==",
+            "url": "{{actor_d_gw}}/submodels/dXJuOmRhdGFzcGFjZTpkOnNtOm1hY2hpbmUtc2ltdWxhdGlvbg==",
             "header": [{ "key": "Authorization", "value": "Bearer {{token_f}}" }]
           },
           "event": [
@@ -362,7 +489,7 @@
           "name": "Actor D - Authorized Customer E queries TechnicalData (Integrated A, B, C)",
           "request": {
             "method": "GET",
-            "url": "{{actor_d_gw}}/submodels/dXJuOmRhdGFzcGFjZSdkOnNtOnRlY2huaWNhbC1kYXRh",
+            "url": "{{actor_d_gw}}/submodels/dXJuOmRhdGFzcGFjZTpkOnNtOnRlY2huaWNhbC1kYXRh",
             "header": [{ "key": "Authorization", "value": "Bearer {{token_e}}" }]
           },
           "event": [
@@ -382,10 +509,10 @@
           ]
         },
         {
-          "name": "Actor D - Authorized Customer E queries Simulation Submodel (200 OK)",
+          "name": "Actor D - Authorized Customer E queries Simulation Submodel (200 OK + STS JWT Headers)",
           "request": {
             "method": "GET",
-            "url": "{{actor_d_gw}}/submodels/dXJuOmRhdGFzcGFjZSdkOnNtOm1hY2hpbmUtc2ltdWxhdGlvbg==",
+            "url": "{{actor_d_gw}}/submodels/dXJuOmRhdGFzcGFjZTpkOnNtOm1hY2hpbmUtc2ltdWxhdGlvbg==",
             "header": [{ "key": "Authorization", "value": "Bearer {{token_e}}" }]
           },
           "event": [
@@ -394,6 +521,10 @@
               "script": {
                 "exec": [
                   "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Exposes X-Dataspace-Source-Token & X-Dataspace-Exchanged-Token headers', function () {",
+                  "  pm.response.to.have.header('X-Dataspace-Source-Token');",
+                  "  pm.response.to.have.header('X-Dataspace-Exchanged-Token');",
+                  "});",
                   "var raw = JSON.stringify(pm.response.json());",
                   "pm.expect(raw).to.include('KinematicAndThermalFEA');",
                   "pm.expect(raw).to.include('ToolCenterPointPrecisionMicron');"
@@ -467,7 +598,7 @@
           ]
         },
         {
-          "name": "Actor E - Authorized Customer F queries TimeSeries Submodel (200 OK)",
+          "name": "Actor E - Authorized Customer F queries TimeSeries Submodel (200 OK + STS JWT Headers)",
           "request": {
             "method": "GET",
             "url": "{{actor_e_gw}}/submodels/dXJuOmRhdGFzcGFjZTplOnNtOnRpbWVzZXJpZXM=",
@@ -479,6 +610,10 @@
               "script": {
                 "exec": [
                   "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Exposes X-Dataspace-Source-Token & X-Dataspace-Exchanged-Token headers', function () {",
+                  "  pm.response.to.have.header('X-Dataspace-Source-Token');",
+                  "  pm.response.to.have.header('X-Dataspace-Exchanged-Token');",
+                  "});",
                   "var raw = JSON.stringify(pm.response.json());",
                   "pm.expect(raw).to.include('ProcessRecordCount');",
                   "pm.expect(raw).to.include('AverageMillingTemperatureCelsius');",
@@ -502,6 +637,29 @@
               "script": {
                 "exec": [
                   "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "BaSyx Viewer F Deep-Link Cross-Origin Request to Actor E Shell (200 OK via Gateway STS)",
+          "request": {
+            "method": "GET",
+            "url": "{{actor_e_gw}}/shells/dXJuOmRhdGFzcGFjZTplOmFhczpwcm9kdWNlZC1wYXJ0LTAwMQ==",
+            "header": [{ "key": "Origin", "value": "http://viewer-f.localhost" }]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Exposes STS JWT transformation headers', function () {",
+                  "  pm.response.to.have.header('X-Dataspace-Source-Token');",
+                  "  pm.response.to.have.header('X-Dataspace-Exchanged-Token');",
+                  "});"
                 ],
                 "type": "text/javascript"
               }

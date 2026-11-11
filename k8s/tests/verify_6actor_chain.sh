@@ -67,6 +67,7 @@ assert_contains() {
 }
 
 KEYCLOAK_URL="${KEYCLOAK_URL:-http://keycloak.localhost}"
+LOOKUP_URL="${LOOKUP_URL:-http://lookup.localhost/api/v2}"
 ACTOR_A_GW="${ACTOR_A_GW:-http://actor-a.localhost}"
 ACTOR_B_GW="${ACTOR_B_GW:-http://actor-b.localhost}"
 ACTOR_C_GW="${ACTOR_C_GW:-http://actor-c.localhost}"
@@ -75,18 +76,13 @@ ACTOR_E_GW="${ACTOR_E_GW:-http://actor-e.localhost}"
 ACTOR_F_GW="${ACTOR_F_GW:-http://actor-f.localhost}"
 
 log_header "6-Actor Industrial Dataspace Verification"
-echo "Keycloak: $KEYCLOAK_URL"
-echo "Actor A:  $ACTOR_A_GW"
-echo "Actor B:  $ACTOR_B_GW"
-echo "Actor C:  $ACTOR_C_GW"
-echo "Actor D:  $ACTOR_D_GW"
-echo "Actor E:  $ACTOR_E_GW"
-echo "Actor F:  $ACTOR_F_GW"
+echo "Keycloak:       $KEYCLOAK_URL"
+echo "Company Lookup: $LOOKUP_URL"
 
 # ------------------------------------------------------------------------------
-# Phase 0: Health Checks
+# Phase 0: Health Checks & Dynamic Discovery via Company Lookup
 # ------------------------------------------------------------------------------
-log_step "Phase 0: Health Checks"
+log_step "Phase 0: Health Checks & Dynamic Discovery via Company Lookup"
 
 check_health() {
   local url="$1"
@@ -100,7 +96,39 @@ check_health() {
   fi
 }
 
+b64url() {
+  echo -n "$1" | base64 | tr '+/' '-_' | tr -d '='
+}
+
+resolve_actor_gateway() {
+  local asset_id="$1"
+  local b64
+  b64=$(b64url "$asset_id")
+  local resp
+  resp=$(curl -s "$LOOKUP_URL/companies?asset_id=$b64" || true)
+  local href
+  href=$(echo "$resp" | grep -o '"href":"http://[^"]*localhost/shells"' | head -n1 | cut -d'"' -f4 | sed 's|/shells$||' || true)
+  echo "$href"
+}
+
 check_health "$KEYCLOAK_URL/realms/BaSyx/.well-known/openid-configuration" "Keycloak (BaSyx Realm)"
+check_health "$LOOKUP_URL/openapi.json" "Company Lookup Service"
+
+# Resolve actor gateways dynamically via Company Lookup Service using Asset/AAS URNs
+RESOLVED_A=$(resolve_actor_gateway "urn:dataspace:a:aas:servo-motor-001")
+RESOLVED_B=$(resolve_actor_gateway "urn:dataspace:b:aas:gearbox-001")
+RESOLVED_C=$(resolve_actor_gateway "urn:dataspace:c:aas:sensor-001")
+RESOLVED_D=$(resolve_actor_gateway "urn:dataspace:d:aas:machine-type-001")
+RESOLVED_E=$(resolve_actor_gateway "urn:dataspace:e:aas:produced-part-001")
+RESOLVED_F=$(resolve_actor_gateway "urn:dataspace:f:aas:customer-profile-001")
+
+[[ -n "$RESOLVED_A" ]] && ACTOR_A_GW="$RESOLVED_A" && log_success "Resolved Actor A via Lookup: $ACTOR_A_GW" || log_fail "Failed to resolve Actor A via Lookup"
+[[ -n "$RESOLVED_B" ]] && ACTOR_B_GW="$RESOLVED_B" && log_success "Resolved Actor B via Lookup: $ACTOR_B_GW" || log_fail "Failed to resolve Actor B via Lookup"
+[[ -n "$RESOLVED_C" ]] && ACTOR_C_GW="$RESOLVED_C" && log_success "Resolved Actor C via Lookup: $ACTOR_C_GW" || log_fail "Failed to resolve Actor C via Lookup"
+[[ -n "$RESOLVED_D" ]] && ACTOR_D_GW="$RESOLVED_D" && log_success "Resolved Actor D via Lookup: $ACTOR_D_GW" || log_fail "Failed to resolve Actor D via Lookup"
+[[ -n "$RESOLVED_E" ]] && ACTOR_E_GW="$RESOLVED_E" && log_success "Resolved Actor E via Lookup: $ACTOR_E_GW" || log_fail "Failed to resolve Actor E via Lookup"
+[[ -n "$RESOLVED_F" ]] && ACTOR_F_GW="$RESOLVED_F" && log_success "Resolved Actor F via Lookup: $ACTOR_F_GW" || log_fail "Failed to resolve Actor F via Lookup"
+
 check_health "$ACTOR_A_GW/healthz" "Actor A Gateway"
 check_health "$ACTOR_B_GW/healthz" "Actor B Gateway"
 check_health "$ACTOR_C_GW/healthz" "Actor C Gateway"

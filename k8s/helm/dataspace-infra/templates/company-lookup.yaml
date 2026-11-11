@@ -1,0 +1,350 @@
+{{- if .Values.companyLookup.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: company-lookup-db
+  labels:
+    app: company-lookup-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: company-lookup-db
+  template:
+    metadata:
+      labels:
+        app: company-lookup-db
+    spec:
+      containers:
+        - name: postgres
+          image: "{{ .Values.companyLookup.postgres.image.repository }}:{{ .Values.companyLookup.postgres.image.tag }}"
+          imagePullPolicy: {{ .Values.companyLookup.postgres.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.companyLookup.postgres.port }}
+              name: postgres
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.companyLookup.postgres.db | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.companyLookup.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.companyLookup.postgres.password | quote }}
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "pg_isready -U {{ .Values.companyLookup.postgres.user }} -d {{ .Values.companyLookup.postgres.db }}"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "pg_isready -U {{ .Values.companyLookup.postgres.user }} -d {{ .Values.companyLookup.postgres.db }}"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      tolerations:
+        - key: "node.kubernetes.io/disk-pressure"
+          operator: "Exists"
+          effect: "NoSchedule"
+        - key: "node.kubernetes.io/disk-pressure"
+          operator: "Exists"
+          effect: "NoExecute"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: company-lookup-db
+  labels:
+    app: company-lookup-db
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.companyLookup.postgres.port }}
+      targetPort: postgres
+      name: postgres
+  selector:
+    app: company-lookup-db
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: company-lookup-seed
+  labels:
+    app: company-lookup
+data:
+  dataspace-actors.seed.json: |
+    [
+      {
+        "name": "Actor A - Servo Motor Supplier",
+        "domain": "actor-a.localhost",
+        "endpoints": [
+          {
+            "protocolInformation": {
+              "href": "http://actor-a.localhost/shells",
+              "endpointProtocol": "HTTP",
+              "endpointProtocolVersion": ["1.1"]
+            },
+            "interface": "AAS-REPOSITORY-3.1"
+          },
+          {
+            "protocolInformation": {
+              "href": "http://actor-a.localhost/submodels",
+              "endpointProtocol": "HTTP",
+              "endpointProtocolVersion": ["1.1"]
+            },
+            "interface": "SUBMODEL-REPOSITORY-3.1"
+          }
+        ],
+        "nameOptions": [
+          "Actor A",
+          "actor-a",
+          "Servo Motor Supplier",
+          "MotorTech Antriebssysteme GmbH"
+        ],
+        "assetIdRegexPatterns": [
+          "^urn:dataspace:a:"
+        ]
+      },
+      {
+        "name": "Actor B - Gearbox Supplier",
+        "domain": "actor-b.localhost",
+        "endpoints": [
+          {
+            "protocolInformation": {
+              "href": "http://actor-b.localhost/shells",
+              "endpointProtocol": "HTTP",
+              "endpointProtocolVersion": ["1.1"]
+            },
+            "interface": "AAS-REPOSITORY-3.1"
+          },
+          {
+            "protocolInformation": {
+              "href": "http://actor-b.localhost/submodels",
+              "endpointProtocol": "HTTP",
+              "endpointProtocolVersion": ["1.1"]
+            },
+            "interface": "SUBMODEL-REPOSITORY-3.1"
+          }
+        ],
+        "nameOptions": [
+          "Actor B",
+          "actor-b",
+          "Gearbox Supplier",
+          "PrecisionGear AG"
+        ],
+        "assetIdRegexPatterns": [
+          "^urn:dataspace:b:"
+        ]
+      },
+      {
+        "name": "Actor C - Sensor Supplier",
+        "domain": "actor-c.localhost",
+        "endpoints": [
+          {
+            "protocolInformation": {
+              "href": "http://actor-c.localhost/shells",
+              "endpointProtocol": "HTTP",
+              "endpointProtocolVersion": ["1.1"]
+            },
+            "interface": "AAS-REPOSITORY-3.1"
+          },
+          {
+            "protocolInformation": {
+              "href": "http://actor-c.localhost/submodels",
+              "endpointProtocol": "HTTP",
+              "endpointProtocolVersion": ["1.1"]
+            },
+            "interface": "SUBMODEL-REPOSITORY-3.1"
+          }
+        ],
+        "nameOptions": [
+          "Actor C",
+          "actor-c",
+          "Sensor Supplier",
+          "SensX Automation Solutions"
+        ],
+        "assetIdRegexPatterns": [
+          "^urn:dataspace:c:"
+        ]
+      },
+      {
+        "name": "Actor D - Machine Manufacturer",
+        "domain": "actor-d.localhost",
+        "endpoints": [
+          {
+            "protocolInformation": {
+              "href": "http://actor-d.localhost/shells",
+              "endpointProtocol": "HTTP",
+              "endpointProtocolVersion": ["1.1"]
+            },
+            "interface": "AAS-REPOSITORY-3.1"
+          },
+          {
+            "protocolInformation": {
+              "href": "http://actor-d.localhost/submodels",
+              "endpointProtocol": "HTTP",
+              "endpointProtocolVersion": ["1.1"]
+            },
+            "interface": "SUBMODEL-REPOSITORY-3.1"
+          }
+        ],
+        "nameOptions": [
+          "Actor D",
+          "actor-d",
+          "Machine Manufacturer",
+          "Apex Machining Systems GmbH"
+        ],
+        "assetIdRegexPatterns": [
+          "^urn:dataspace:d:"
+        ]
+      },
+      {
+        "name": "Actor E - Production Plant",
+        "domain": "actor-e.localhost",
+        "endpoints": [
+          {
+            "protocolInformation": {
+              "href": "http://actor-e.localhost/shells",
+              "endpointProtocol": "HTTP",
+              "endpointProtocolVersion": ["1.1"]
+            },
+            "interface": "AAS-REPOSITORY-3.1"
+          },
+          {
+            "protocolInformation": {
+              "href": "http://actor-e.localhost/submodels",
+              "endpointProtocol": "HTTP",
+              "endpointProtocolVersion": ["1.1"]
+            },
+            "interface": "SUBMODEL-REPOSITORY-3.1"
+          }
+        ],
+        "nameOptions": [
+          "Actor E",
+          "actor-e",
+          "Production Plant",
+          "PrecisionAero Components GmbH"
+        ],
+        "assetIdRegexPatterns": [
+          "^urn:dataspace:e:"
+        ]
+      },
+      {
+        "name": "Actor F - End Customer",
+        "domain": "actor-f.localhost",
+        "endpoints": [
+          {
+            "protocolInformation": {
+              "href": "http://actor-f.localhost/shells",
+              "endpointProtocol": "HTTP",
+              "endpointProtocolVersion": ["1.1"]
+            },
+            "interface": "AAS-REPOSITORY-3.1"
+          },
+          {
+            "protocolInformation": {
+              "href": "http://actor-f.localhost/submodels",
+              "endpointProtocol": "HTTP",
+              "endpointProtocolVersion": ["1.1"]
+            },
+            "interface": "SUBMODEL-REPOSITORY-3.1"
+          }
+        ],
+        "nameOptions": [
+          "Actor F",
+          "actor-f",
+          "End Customer",
+          "AeroEngine Global Corp"
+        ],
+        "assetIdRegexPatterns": [
+          "^urn:dataspace:f:"
+        ]
+      }
+    ]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: company-lookup
+  labels:
+    app: company-lookup
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: company-lookup
+  template:
+    metadata:
+      labels:
+        app: company-lookup
+    spec:
+      containers:
+        - name: company-lookup
+          image: "{{ .Values.companyLookup.image.repository }}:{{ .Values.companyLookup.image.tag }}"
+          imagePullPolicy: {{ .Values.companyLookup.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - "alembic upgrade head && python -m scripts.import_descriptors /app/data/dataspace-actors.seed.json || true; exec company-lookup"
+          ports:
+            - containerPort: {{ .Values.companyLookup.port }}
+              name: http
+          env:
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://{{ .Values.companyLookup.postgres.user }}:{{ .Values.companyLookup.postgres.password }}@company-lookup-db:{{ .Values.companyLookup.postgres.port }}/{{ .Values.companyLookup.postgres.db }}"
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: {{ .Values.companyLookup.port | quote }}
+            - name: API_KEYS
+              value: {{ .Values.companyLookup.adminKey | quote }}
+            - name: CORS_ORIGINS
+              value: "*"
+          volumeMounts:
+            - name: seed-data
+              mountPath: /app/data/dataspace-actors.seed.json
+              subPath: dataspace-actors.seed.json
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /api/v2/openapi.json
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/v2/openapi.json
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      tolerations:
+        - key: "node.kubernetes.io/disk-pressure"
+          operator: "Exists"
+          effect: "NoSchedule"
+        - key: "node.kubernetes.io/disk-pressure"
+          operator: "Exists"
+          effect: "NoExecute"
+      volumes:
+        - name: seed-data
+          configMap:
+            name: company-lookup-seed
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: company-lookup
+  labels:
+    app: company-lookup
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.companyLookup.port }}
+      targetPort: http
+      name: http
+  selector:
+    app: company-lookup
+{{- end }}
+

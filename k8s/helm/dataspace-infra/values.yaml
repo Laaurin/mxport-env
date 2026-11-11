@@ -37,3 +37,24 @@ keycloak:
   ingress:
     enabled: true
     host: keycloak.localhost
+
+companyLookup:
+  enabled: true
+  image:
+    repository: mxport-leo-company-lookup
+    tag: "local"
+    pullPolicy: IfNotPresent
+  port: 50102
+  adminKey: "admin-secret-key"
+  ingress:
+    enabled: true
+    host: lookup.localhost
+  postgres:
+    image:
+      repository: postgres
+      tag: "16-alpine"
+      pullPolicy: IfNotPresent
+    db: company_lookup
+    user: lookup_user
+    password: lookup_pass
+    port: 5432

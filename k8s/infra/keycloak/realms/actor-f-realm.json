@@ -6,6 +6,16 @@
   "sslRequired": "none",
   "registrationAllowed": false,
   "accessTokenLifespan": 3600,
+  "browserSecurityHeaders": {
+    "contentSecurityPolicyReportOnly": "",
+    "xContentTypeOptions": "nosniff",
+    "referrerPolicy": "no-referrer",
+    "xRobotsTag": "none",
+    "xFrameOptions": "",
+    "contentSecurityPolicy": "frame-src 'self'; frame-ancestors 'self' http://localhost:5173 http://*.localhost http://localhost:*; object-src 'none';",
+    "xXSSProtection": "1; mode=block",
+    "strictTransportSecurity": "max-age=31536000; includeSubDomains"
+  },
   "roles": {
     "realm": [
       {
@@ -30,9 +40,36 @@
       "publicClient": false,
       "clientAuthenticatorType": "client-secret",
       "secret": "actor-f-secret-12345",
-      "standardFlowEnabled": false,
+      "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": true,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "defaultClientScopes": ["basic", "openid", "profile", "email", "roles"],
+      "protocolMappers": [
+        {
+          "name": "client-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "actor-f-viewer",
+      "name": "Actor F AAS Viewer SPA",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
       "redirectUris": ["*"],
       "webOrigins": ["*"],
       "defaultClientScopes": ["basic", "openid", "profile", "email", "roles"],
@@ -59,7 +96,7 @@
       "username": "service-account-actor-f-client",
       "enabled": true,
       "serviceAccountClientId": "actor-f-client",
-      "realmRoles": ["partner-f", "customer-e", "admin"]
+      "realmRoles": ["partner-f", "customer-e"]
     },
     {
       "username": "actor-f-user",

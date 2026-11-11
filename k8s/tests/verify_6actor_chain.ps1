@@ -42,6 +42,7 @@ function Assert-Contains($haystack, $needle, $desc) {
 }
 
 $KeycloakUrl = "http://keycloak.localhost"
+$LookupUrl   = "http://lookup.localhost/api/v2"
 $ActorAGw    = "http://actor-a.localhost"
 $ActorBGw    = "http://actor-b.localhost"
 $ActorCGw    = "http://actor-c.localhost"
@@ -51,8 +52,8 @@ $ActorFGw    = "http://actor-f.localhost"
 
 Log-Header "6-Actor Industrial Dataspace Verification"
 
-# Phase 0: Health Checks
-Log-Step "Phase 0: Health Checks"
+# Phase 0: Health Checks & Dynamic Discovery via Company Lookup
+Log-Step "Phase 0: Health Checks & Dynamic Discovery via Company Lookup"
 
 function Check-Health($url, $name) {
     try {
@@ -70,7 +71,44 @@ function Check-Health($url, $name) {
     }
 }
 
+function ConvertTo-Base64Url($text) {
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+    return [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+}
+
+function Resolve-ActorGateway($assetId, $label) {
+    try {
+        $b64 = ConvertTo-Base64Url $assetId
+        $r = Invoke-RestMethod -Uri "$LookupUrl/companies?asset_id=$b64" -Method Get -TimeoutSec 5
+        $ep = $r.result[0].endpoints | Where-Object { $_.interface -like "AAS-REPOSITORY*" } | Select-Object -First 1
+        $gw = $ep.protocolInformation.href -replace '/shells$', ''
+        if ($gw) {
+            Write-Host "  [PASS] Resolved $label via Lookup: $gw" -ForegroundColor Green
+            $global:PassedTests++
+            return $gw
+        }
+    } catch {}
+    Write-Host "  [FAIL] Failed to resolve $label via Lookup ($assetId)" -ForegroundColor Red
+    $global:FailedTests++
+    return $null
+}
+
 Check-Health "$KeycloakUrl/realms/BaSyx/.well-known/openid-configuration" "Keycloak (BaSyx Realm)"
+Check-Health "$LookupUrl/openapi.json" "Company Lookup Service"
+
+$resA = Resolve-ActorGateway "urn:dataspace:a:aas:servo-motor-001" "Actor A"
+$resB = Resolve-ActorGateway "urn:dataspace:b:aas:gearbox-001" "Actor B"
+$resC = Resolve-ActorGateway "urn:dataspace:c:aas:sensor-001" "Actor C"
+$resD = Resolve-ActorGateway "urn:dataspace:d:aas:machine-type-001" "Actor D"
+$resE = Resolve-ActorGateway "urn:dataspace:e:aas:produced-part-001" "Actor E"
+$resF = Resolve-ActorGateway "urn:dataspace:f:aas:customer-profile-001" "Actor F"
+
+if ($resA) { $ActorAGw = $resA }
+if ($resB) { $ActorBGw = $resB }
+if ($resC) { $ActorCGw = $resC }
+if ($resD) { $ActorDGw = $resD }
+if ($resE) { $ActorEGw = $resE }
+if ($resF) { $ActorFGw = $resF }
 Check-Health "$ActorAGw/healthz" "Actor A Gateway"
 Check-Health "$ActorBGw/healthz" "Actor B Gateway"
 Check-Health "$ActorCGw/healthz" "Actor C Gateway"

@@ -10,6 +10,16 @@ ingress:
   enabled: true
   host: "actor-e.localhost"
 
+viewer:
+  enabled: true
+  security:
+    type: "oauth2"
+    config:
+      issuer: "http://keycloak.localhost/realms/actor-e"
+      clientId: "actor-e-client"
+      clientSecret: "actor-e-secret-12345"
+      flow: "client_credentials"
+
 secsm:
   enabled: true
 
@@ -84,6 +94,18 @@ rbac:
         aasIds: "*"
         submodelIds: "*"
         conceptDescriptionIds: "*"
+    # Owner role (Actor E itself)
+    - role: "partner-e"
+      action: ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"]
+      targetInformation:
+        "@type": "aas"
+        aasIds: "*"
+    - role: "partner-e"
+      action: ["CREATE", "READ", "UPDATE", "DELETE", "EXECUTE"]
+      targetInformation:
+        "@type": "submodel"
+        submodelIds: "*"
+        submodelElementIdShortPaths: "*"
     # Customer F: Full access to TimeSeries Submodel + Nameplate
     - role: "customer-e"
       action: ["READ"]
@@ -98,6 +120,7 @@ rbac:
         submodelIds:
           - "urn:dataspace:e:sm:nameplate"
           - "urn:dataspace:e:sm:timeseries"
+        submodelElementIdShortPaths: "*"
     # Other partners (e.g. Actor D): Access to Nameplate ONLY ("andere sehen nur Nameplate")
     - role: "partner-d"
       action: ["READ"]
@@ -111,3 +134,4 @@ rbac:
         "@type": "submodel"
         submodelIds:
           - "urn:dataspace:e:sm:nameplate"
+        submodelElementIdShortPaths: "*"
