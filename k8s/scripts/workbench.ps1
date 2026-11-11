@@ -1,17 +1,22 @@
 # ==============================================================================
 # workbench.ps1
-# Windows PowerShell Script to launch Dataspace Test Workbench UI
+# Windows PowerShell Script to launch the Vue Dataspace Workbench UI
 # ==============================================================================
 $ErrorActionPreference = "Stop"
 
-$ScriptDir     = Split-Path -Parent $MyInvocation.MyCommand.Path
-$K8sDir        = Split-Path -Parent $ScriptDir
-$WorkbenchDir  = Join-Path $K8sDir "workbench"
-$Port          = 3333
+$ScriptDir    = Split-Path -Parent $MyInvocation.MyCommand.Path
+$K8sDir       = Split-Path -Parent $ScriptDir
+$RootDir      = Split-Path -Parent $K8sDir
+$WorkbenchDir = Join-Path $RootDir "workbench"
 
-Write-Host ">>> Starting Dataspace Test Workbench on port $Port..." -ForegroundColor Cyan
-Write-Host ">>> Serving UI at: http://localhost:$Port" -ForegroundColor Green
+if (-not (Test-Path (Join-Path $WorkbenchDir "node_modules"))) {
+    Write-Host ">>> Installing workbench dependencies (npm install)..." -ForegroundColor Cyan
+    Push-Location $WorkbenchDir
+    npm install
+    Pop-Location
+}
 
-Start-Process "http://localhost:$Port"
-
-node "$WorkbenchDir\server.js"
+Write-Host ">>> Starting Vue Dataspace Workbench on http://localhost:5173 ..." -ForegroundColor Green
+Push-Location $WorkbenchDir
+npm run dev
+Pop-Location

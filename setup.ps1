@@ -1,24 +1,24 @@
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 #  MX-PORT LEO & BASYX ENVIRONMENT SETUP (Windows PowerShell)
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 $ErrorActionPreference = "Stop"
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ReposDir = Join-Path $ScriptDir "repos"
 
-Write-Host "══════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "==============================================================================" -ForegroundColor Cyan
 Write-Host "   MX-PORT LEO & BASYX ENVIRONMENT SETUP (Windows PowerShell)" -ForegroundColor Cyan
-Write-Host "══════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "==============================================================================" -ForegroundColor Cyan
 
-# 1. Voraussetzungen prüfen (git, openssl)
-Write-Host "==> Überprüfe Voraussetzungen (git, openssl)..."
+# 1. Prerequisites check (git, openssl)
+Write-Host "==> Checking prerequisites (git, openssl)..."
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    Write-Error "Git ist nicht installiert oder nicht im PATH. Bitte Git für Windows installieren: https://git-scm.com"
+    Write-Error "Git is not installed or not in PATH. Please install Git for Windows: https://git-scm.com"
     exit 1
 }
 
-# OpenSSL lokalisieren (entweder im PATH oder in Standard-Pfade von Git für Windows)
+# Locate OpenSSL (either in PATH or in default Git for Windows directories)
 $openSslCmd = Get-Command openssl -ErrorAction SilentlyContinue
 $openSslPath = $null
 
@@ -39,24 +39,24 @@ if ($openSslCmd) {
 }
 
 if (-not $openSslPath) {
-    Write-Host "⚠️ OpenSSL wurde nicht automatisch im PATH oder Git-Verzeichnis gefunden." -ForegroundColor Yellow
-    Write-Host "   Tipp: Führe aus: winget install ShiningLight.OpenSSL.Light" -ForegroundColor Yellow
-    Write-Host "   Oder nutze die Git Bash für das Setup: ./setup.sh" -ForegroundColor Yellow
-    Write-Error "Abbruch: OpenSSL erforderlich zur Generierung der STS-Signing-Keys."
+    Write-Host "[WARN] OpenSSL was not found in PATH or default Git directories." -ForegroundColor Yellow
+    Write-Host "       Tip: Run: winget install ShiningLight.OpenSSL.Light" -ForegroundColor Yellow
+    Write-Host "       Or run setup via Git Bash: ./setup.sh" -ForegroundColor Yellow
+    Write-Error "Aborted: OpenSSL is required to generate STS signing keys."
     exit 1
 }
 
-Write-Host "  ✔ git und openssl ($openSslPath) sind verfügbar." -ForegroundColor Green
+Write-Host "  [OK] git and openssl ($openSslPath) are available." -ForegroundColor Green
 
-# Windows: lange Pfade in Git aktivieren (verhindert 'Filename too long' bei tiefen Java-Paketstrukturen)
+# Enable long paths in Git on Windows (prevents 'Filename too long' in deep Java packages)
 git config --global core.longpaths true 2>$null
 
-# 2. Verzeichnisse sicherstellen
+# 2. Ensure directories exist
 $null = New-Item -ItemType Directory -Force -Path $ReposDir
 $null = New-Item -ItemType Directory -Force -Path (Join-Path $ScriptDir "consumer\sts\signingkey")
 $null = New-Item -ItemType Directory -Force -Path (Join-Path $ScriptDir "provider\sts\signingkey")
 
-# 3. Helper-Funktion zum Klonen und Pinnen der Sub-Repositories
+# 3. Helper function to clone and pin sub-repositories
 function Clone-Repo {
     param (
         [string]$RepoName,
@@ -68,23 +68,24 @@ function Clone-Repo {
         git -C $targetDir config core.longpaths true 2>$null
         $nonGitItems = Get-ChildItem -Path $targetDir -Force | Where-Object { $_.Name -ne ".git" }
         if (-not $nonGitItems) {
-            Write-Host "  ⚠️ [Unvollständiger Checkout erkannt] Repariere $RepoName..." -ForegroundColor Yellow
+            Write-Host "  [WARN] Incomplete checkout detected. Repairing $RepoName..." -ForegroundColor Yellow
             git -C $targetDir checkout -f $PinnedCommit
-            Write-Host "  ✔ [Erfolgreich repariert] $RepoName" -ForegroundColor Green
+            Write-Host "  [OK] Repaired $RepoName" -ForegroundColor Green
         } else {
-            Write-Host "  ✔ [Bereits vorhanden] $RepoName" -ForegroundColor DarkGray
+            Write-Host "  [OK] Already present: $RepoName" -ForegroundColor DarkGray
         }
     } else {
-        Write-Host "  ⬇ Klone $RepoName von $RepoUrl..." -ForegroundColor Yellow
+        Write-Host "  [INFO] Cloning $RepoName from $RepoUrl..." -ForegroundColor Yellow
         git clone -c core.longpaths=true $RepoUrl $targetDir
         git -C $targetDir config core.longpaths true 2>$null
-        Write-Host "  📌 Setze $RepoName auf getesteten Stand ($($PinnedCommit.Substring(0,7)))..." -ForegroundColor Yellow
+        $shortCommit = $PinnedCommit.Substring(0, 7)
+        Write-Host "  [INFO] Pinning $RepoName to commit $shortCommit..." -ForegroundColor Yellow
         git -C $targetDir checkout -q $PinnedCommit
-        Write-Host "  ✔ [Erfolgreich geklont] $RepoName" -ForegroundColor Green
+        Write-Host "  [OK] Cloned $RepoName" -ForegroundColor Green
     }
 }
 
-Write-Host "==> Klone / Überprüfe externe Repositories in repos/..."
+Write-Host "==> Cloning / verifying external repositories in repos/..."
 Clone-Repo "mxport-leo-token-exchange" `
     "https://github.com/factory-x-contributions/mxport-leo-token-exchange.git" `
     "4ad9a6011db4326fee6b518a18f239647ea4069c"
@@ -101,53 +102,55 @@ Clone-Repo "basyx-java-server-sdk" `
     "https://github.com/eclipse-basyx/basyx-java-server-sdk.git" `
     "568f5d04f2ac52522962894f99c7525f952c64aa"
 
-# 4. STS-Signing-Keys generieren (falls nicht vorhanden)
-Write-Host "==> Überprüfe STS-Signing-Keys..."
+# 4. Generate STS signing keys if not present
+Write-Host "==> Checking STS signing keys..."
 $consumerPrivKey = Join-Path $ScriptDir "consumer\sts\signingkey\private_key.pem"
 $consumerPubKey  = Join-Path $ScriptDir "consumer\sts\signingkey\public.pem"
 if (-not (Test-Path $consumerPrivKey)) {
-    Write-Host "  🔑 Generiere Consumer STS Key (RSA 4096)..." -ForegroundColor Yellow
+    Write-Host "  [INFO] Generating Consumer STS Key (RSA 4096)..." -ForegroundColor Yellow
     & $openSslPath genrsa -out $consumerPrivKey 4096
     & $openSslPath rsa -in $consumerPrivKey -pubout -out $consumerPubKey
-    Write-Host "  ✔ Consumer STS Key generiert." -ForegroundColor Green
+    Write-Host "  [OK] Consumer STS Key generated." -ForegroundColor Green
 } else {
-    Write-Host "  ✔ Consumer STS Key vorhanden." -ForegroundColor DarkGray
+    Write-Host "  [OK] Consumer STS Key already exists." -ForegroundColor DarkGray
 }
 
 $providerPrivKey = Join-Path $ScriptDir "provider\sts\signingkey\private_key.pem"
 $providerPubKey  = Join-Path $ScriptDir "provider\sts\signingkey\public.pem"
 if (-not (Test-Path $providerPrivKey)) {
-    Write-Host "  🔑 Generiere Provider STS Key (RSA 4096)..." -ForegroundColor Yellow
+    Write-Host "  [INFO] Generating Provider STS Key (RSA 4096)..." -ForegroundColor Yellow
     & $openSslPath genrsa -out $providerPrivKey 4096
     & $openSslPath rsa -in $providerPrivKey -pubout -out $providerPubKey
-    Write-Host "  ✔ Provider STS Key generiert." -ForegroundColor Green
+    Write-Host "  [OK] Provider STS Key generated." -ForegroundColor Green
 } else {
-    Write-Host "  ✔ Provider STS Key vorhanden." -ForegroundColor DarkGray
+    Write-Host "  [OK] Provider STS Key already exists." -ForegroundColor DarkGray
 }
 
-# 5. .env Konfiguration bereitstellen (falls noch nicht vorhanden)
-Write-Host "==> Überprüfe .env Konfiguration..."
+# 5. Create .env from .env.example if not present
+Write-Host "==> Checking .env configuration..."
 $envFile = Join-Path $ScriptDir ".env"
 $envExampleFile = Join-Path $ScriptDir ".env.example"
 if (-not (Test-Path $envFile)) {
     if (Test-Path $envExampleFile) {
-        Write-Host "  📄 Erstelle .env aus .env.example..." -ForegroundColor Yellow
+        Write-Host "  [INFO] Creating .env from .env.example..." -ForegroundColor Yellow
         Copy-Item $envExampleFile $envFile
-        Write-Host "  ✔ .env erstellt." -ForegroundColor Green
+        Write-Host "  [OK] .env created." -ForegroundColor Green
     }
 } else {
-    Write-Host "  ✔ .env bereits vorhanden." -ForegroundColor DarkGray
+    Write-Host "  [OK] .env already exists." -ForegroundColor DarkGray
 }
 
 Write-Host ""
-Write-Host "══════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "✔ SETUP ERFOLGREICH ABGESCHLOSSEN!" -ForegroundColor Green
-Write-Host "══════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "Nächste Schritte:"
-Write-Host "  1. Container im Hintergrund starten:"
-Write-Host "     docker compose up -d"
+Write-Host "==============================================================================" -ForegroundColor Cyan
+Write-Host "[OK] SETUP COMPLETED SUCCESSFULLY!" -ForegroundColor Green
+Write-Host "==============================================================================" -ForegroundColor Cyan
+Write-Host "Next steps (k3d 6-Actor Dataspace):"
+Write-Host "  1. Start k3d cluster and deploy all 6 actors:"
+Write-Host "     .\k8s\scripts\cluster-up.ps1"
 Write-Host ""
-Write-Host "  2. End-to-End Pipeline verifizieren:"
-Write-Host "     In Git Bash / WSL2: ./tests/verify_token_pipeline.sh"
-Write-Host "     Oder in Postman: Collection Runner mit postman/MXPort_BaSyx_E2E.postman_collection.json"
-Write-Host "══════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "  2. Run 6-actor E2E verification:"
+Write-Host "     .\k8s\tests\verify_6actor_chain.ps1"
+Write-Host ""
+Write-Host "  3. Start Vue Workbench UI:"
+Write-Host "     .\k8s\scripts\workbench.ps1"
+Write-Host "==============================================================================" -ForegroundColor Cyan

@@ -18,8 +18,6 @@ function Log-Step($step) {
 }
 
 function Assert-Status($actual, $expected, $desc) {
-    global: $PassedTests
-    global: $FailedTests
     if ($actual -eq $expected) {
         Write-Host "  [PASS] $desc (HTTP $actual)" -ForegroundColor Green
         $global:PassedTests++
@@ -30,8 +28,6 @@ function Assert-Status($actual, $expected, $desc) {
 }
 
 function Assert-Contains($haystack, $needle, $desc) {
-    global: $PassedTests
-    global: $FailedTests
     if ($haystack -like "*$needle*") {
         Write-Host "  [PASS] $desc (Found '$needle')" -ForegroundColor Green
         $global:PassedTests++
