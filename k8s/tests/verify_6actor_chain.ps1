@@ -1,6 +1,8 @@
 # ==============================================================================
 # verify_6actor_chain.ps1
-# Windows PowerShell End-to-End Verification of the 6-Actor Dataspace in k3d
+# Windows PowerShell 5.1 & 7+ End-to-End Verification of the 6-Actor Dataspace
+# Connects via 127.0.0.1 + Host header fallback so it works on Windows even
+# without editing C:\Windows\System32\drivers\etc\hosts
 # ==============================================================================
 $ErrorActionPreference = "Continue"
 
@@ -20,20 +22,80 @@ function Log-Step($step) {
 function Assert-Status($actual, $expected, $desc) {
     if ($actual -eq $expected) {
         Write-Host "  [PASS] $desc (HTTP $actual)" -ForegroundColor Green
-        $global:PassedTests++
+        $script:PassedTests++
     } else {
         Write-Host "  [FAIL] $desc (Expected HTTP $expected, got $actual)" -ForegroundColor Red
-        $global:FailedTests++
+        $script:FailedTests++
     }
 }
 
 function Assert-Contains($haystack, $needle, $desc) {
     if ($haystack -like "*$needle*") {
         Write-Host "  [PASS] $desc (Found '$needle')" -ForegroundColor Green
-        $global:PassedTests++
+        $script:PassedTests++
     } else {
         Write-Host "  [FAIL] $desc (Missing '$needle')" -ForegroundColor Red
-        $global:FailedTests++
+        $script:FailedTests++
+    }
+}
+
+# Helper that resolves *.localhost to 127.0.0.1 with Host header so Windows
+# PowerShell 5.1 works without requiring C:\Windows\System32\drivers\etc\hosts
+function Invoke-DataspaceHttp {
+    param(
+        [string]$Uri,
+        [string]$Method = "GET",
+        [hashtable]$Headers = @{},
+        [string]$Body = $null,
+        [string]$ContentType = $null
+    )
+
+    $parsed = [System.Uri]$Uri
+    $targetHost = $parsed.Host
+    $targetUri = $Uri
+
+    $reqHeaders = @{}
+    foreach ($k in $Headers.Keys) {
+        $reqHeaders[$k] = $Headers[$k]
+    }
+
+    if ($targetHost -like "*.localhost") {
+        $portPart = if ($parsed.IsDefaultPort) { "" } else { ":$($parsed.Port)" }
+        $targetUri = "$($parsed.Scheme)://127.0.0.1$portPart$($parsed.PathAndQuery)"
+        $reqHeaders["Host"] = $targetHost
+    }
+
+    try {
+        $params = @{
+            Uri             = $targetUri
+            Method          = $Method
+            Headers         = $reqHeaders
+            UseBasicParsing = $true
+            TimeoutSec      = 10
+            ErrorAction     = "Stop"
+        }
+        if ($null -ne $Body) {
+            $params["Body"] = $Body
+        }
+        if ($null -ne $ContentType) {
+            $params["ContentType"] = $ContentType
+        }
+        $resp = Invoke-WebRequest @params
+        return @{
+            StatusCode = [int]$resp.StatusCode
+            Content    = $resp.Content
+        }
+    } catch {
+        $statusCode = 0
+        $errBody = ""
+        if ($_.Exception.Response) {
+            $statusCode = [int]$_.Exception.Response.StatusCode.value__
+        }
+        return @{
+            StatusCode = $statusCode
+            Content    = $errBody
+            Error      = $_.Exception.Message
+        }
     }
 }
 
@@ -52,18 +114,13 @@ Log-Header "6-Actor Industrial Dataspace Verification"
 Log-Step "Phase 0: Health Checks & Dynamic Discovery via Company Lookup"
 
 function Check-Health($url, $name) {
-    try {
-        $resp = Invoke-WebRequest -Uri $url -Method Get -TimeoutSec 5 -UseBasicParsing -ErrorAction SilentlyContinue
-        if ($resp.StatusCode -eq 200) {
-            Write-Host "  [PASS] $name is reachable (HTTP 200)" -ForegroundColor Green
-            $global:PassedTests++
-        } else {
-            Write-Host "  [FAIL] $name unreachable at $url (HTTP $($resp.StatusCode))" -ForegroundColor Red
-            $global:FailedTests++
-        }
-    } catch {
-        Write-Host "  [FAIL] $name error at $url: $_" -ForegroundColor Red
-        $global:FailedTests++
+    $resp = Invoke-DataspaceHttp -Uri $url -Method "GET"
+    if ($resp.StatusCode -eq 200) {
+        Write-Host "  [PASS] $name is reachable (HTTP 200)" -ForegroundColor Green
+        $script:PassedTests++
+    } else {
+        Write-Host "  [FAIL] $name unreachable at $url (HTTP $($resp.StatusCode))" -ForegroundColor Red
+        $script:FailedTests++
     }
 }
 
@@ -73,19 +130,22 @@ function ConvertTo-Base64Url($text) {
 }
 
 function Resolve-ActorGateway($assetId, $label) {
-    try {
-        $b64 = ConvertTo-Base64Url $assetId
-        $r = Invoke-RestMethod -Uri "$LookupUrl/companies?asset_id=$b64" -Method Get -TimeoutSec 5
-        $ep = $r.result[0].endpoints | Where-Object { $_.interface -like "AAS-REPOSITORY*" } | Select-Object -First 1
-        $gw = $ep.protocolInformation.href -replace '/shells$', ''
-        if ($gw) {
-            Write-Host "  [PASS] Resolved $label via Lookup: $gw" -ForegroundColor Green
-            $global:PassedTests++
-            return $gw
-        }
-    } catch {}
+    $b64 = ConvertTo-Base64Url $assetId
+    $resp = Invoke-DataspaceHttp -Uri "$LookupUrl/companies?asset_id=$b64" -Method "GET"
+    if ($resp.StatusCode -eq 200 -and $resp.Content) {
+        try {
+            $json = $resp.Content | ConvertFrom-Json
+            $ep = $json.result[0].endpoints | Where-Object { $_.interface -like "AAS-REPOSITORY*" } | Select-Object -First 1
+            $gw = $ep.protocolInformation.href -replace '/shells$', ''
+            if ($gw) {
+                Write-Host "  [PASS] Resolved $label via Lookup: $gw" -ForegroundColor Green
+                $script:PassedTests++
+                return $gw
+            }
+        } catch {}
+    }
     Write-Host "  [FAIL] Failed to resolve $label via Lookup ($assetId)" -ForegroundColor Red
-    $global:FailedTests++
+    $script:FailedTests++
     return $null
 }
 
@@ -105,6 +165,7 @@ if ($resC) { $ActorCGw = $resC }
 if ($resD) { $ActorDGw = $resD }
 if ($resE) { $ActorEGw = $resE }
 if ($resF) { $ActorFGw = $resF }
+
 Check-Health "$ActorAGw/healthz" "Actor A Gateway"
 Check-Health "$ActorBGw/healthz" "Actor B Gateway"
 Check-Health "$ActorCGw/healthz" "Actor C Gateway"
@@ -115,44 +176,32 @@ Check-Health "$ActorFGw/healthz" "Actor F Gateway"
 # Phase 1: Public Product Information (Actor A, B, C)
 Log-Step "Phase 1: Public Access to Product Information (Actor A, B, C)"
 
-try {
-    $rA = Invoke-WebRequest -Uri "$ActorAGw/shells" -Method Get -UseBasicParsing
-    Assert-Status $rA.StatusCode 200 "Public query to Actor A /shells"
-    Assert-Contains $rA.Content "ServoMotorAAS" "Actor A returns ServoMotorAAS"
-} catch {
-    Assert-Status 0 200 "Public query to Actor A /shells failed: $_"
-}
+$rA = Invoke-DataspaceHttp -Uri "$ActorAGw/shells"
+Assert-Status $rA.StatusCode 200 "Public query to Actor A /shells"
+Assert-Contains $rA.Content "ServoMotorAAS" "Actor A returns ServoMotorAAS"
 
-try {
-    $rB = Invoke-WebRequest -Uri "$ActorBGw/shells" -Method Get -UseBasicParsing
-    Assert-Status $rB.StatusCode 200 "Public query to Actor B /shells"
-    Assert-Contains $rB.Content "IndustrialGearboxAAS" "Actor B returns IndustrialGearboxAAS"
-} catch {
-    Assert-Status 0 200 "Public query to Actor B /shells failed: $_"
-}
+$rB = Invoke-DataspaceHttp -Uri "$ActorBGw/shells"
+Assert-Status $rB.StatusCode 200 "Public query to Actor B /shells"
+Assert-Contains $rB.Content "IndustrialGearboxAAS" "Actor B returns IndustrialGearboxAAS"
 
-try {
-    $rC = Invoke-WebRequest -Uri "$ActorCGw/shells" -Method Get -UseBasicParsing
-    Assert-Status $rC.StatusCode 200 "Public query to Actor C /shells"
-    Assert-Contains $rC.Content "VibrationSensorAAS" "Actor C returns VibrationSensorAAS"
-} catch {
-    Assert-Status 0 200 "Public query to Actor C /shells failed: $_"
-}
+$rC = Invoke-DataspaceHttp -Uri "$ActorCGw/shells"
+Assert-Status $rC.StatusCode 200 "Public query to Actor C /shells"
+Assert-Contains $rC.Content "VibrationSensorAAS" "Actor C returns VibrationSensorAAS"
 
 # Keycloak Token Retrieval
 function Get-Token($realm, $clientId, $clientSecret) {
-    try {
-        $body = @{
-            grant_type    = "client_credentials"
-            client_id     = $clientId
-            client_secret = $clientSecret
-        }
-        $r = Invoke-RestMethod -Uri "$KeycloakUrl/realms/$realm/protocol/openid-connect/token" -Method Post -Body $body -ContentType "application/x-www-form-urlencoded"
-        return $r.access_token
-    } catch {
-        Write-Host "  [FAIL] Failed to obtain token from realm $realm: $_" -ForegroundColor Red
-        return $null
+    $formBody = "grant_type=client_credentials&client_id=$clientId&client_secret=$clientSecret"
+    $resp = Invoke-DataspaceHttp `
+        -Uri "$KeycloakUrl/realms/$realm/protocol/openid-connect/token" `
+        -Method "POST" `
+        -Body $formBody `
+        -ContentType "application/x-www-form-urlencoded"
+    if ($resp.StatusCode -eq 200 -and $resp.Content) {
+        $json = $resp.Content | ConvertFrom-Json
+        return $json.access_token
     }
+    Write-Host "  [FAIL] Failed to obtain token from realm $realm (HTTP $($resp.StatusCode))" -ForegroundColor Red
+    return $null
 }
 
 $TokenE = Get-Token "actor-e" "actor-e-client" "actor-e-secret-12345"
@@ -164,30 +213,29 @@ Log-Step "Phase 2: Security Validation on Actor D (Simulation SM Protection)"
 
 $SmDSim = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("urn:dataspace:d:sm:machine-simulation"))
 
-try {
-    $unauthD = Invoke-WebRequest -Uri "$ActorDGw/submodels/$SmDSim" -Method Get -UseBasicParsing -ErrorAction Stop
-    Assert-Status $unauthD.StatusCode 401 "Unauthenticated request to Actor D Simulation SM should be rejected"
-} catch {
-    $code = $_.Exception.Response.StatusCode.value__
-    Assert-Status $code 401 "Unauthenticated request to Actor D Simulation SM rejected (HTTP 401)"
+$unauthD = Invoke-DataspaceHttp -Uri "$ActorDGw/submodels/$SmDSim"
+Assert-Status $unauthD.StatusCode 401 "Unauthenticated request to Actor D Simulation SM rejected (HTTP 401)"
+
+$nonCustF = Invoke-DataspaceHttp -Uri "$ActorDGw/submodels/$SmDSim" -Headers @{ Authorization = "Bearer $TokenF" }
+if ($nonCustF.StatusCode -eq 401 -or $nonCustF.StatusCode -eq 403) {
+    Write-Host "  [PASS] Non-customer Actor F is denied access to Actor D Simulation SM (HTTP $($nonCustF.StatusCode))" -ForegroundColor Green
+    $script:PassedTests++
+} else {
+    Write-Host "  [FAIL] Non-customer Actor F should be denied (got HTTP $($nonCustF.StatusCode))" -ForegroundColor Red
+    $script:FailedTests++
 }
 
 # Phase 3: Customer E queries Actor D (Simulation SM)
 Log-Step "Phase 3: Customer E queries Actor D (MachineTypeAAS & Simulation)"
 
-try {
-    $headersE = @{ Authorization = "Bearer $TokenE" }
-    $rDShells = Invoke-WebRequest -Uri "$ActorDGw/shells" -Headers $headersE -Method Get -UseBasicParsing
-    Assert-Status $rDShells.StatusCode 200 "Customer E queries Actor D /shells"
-    Assert-Contains $rDShells.Content "MillingMachineTypeAAS" "Actor D returns MillingMachineTypeAAS"
+$headersE = @{ Authorization = "Bearer $TokenE" }
+$rDShells = Invoke-DataspaceHttp -Uri "$ActorDGw/shells" -Headers $headersE
+Assert-Status $rDShells.StatusCode 200 "Customer E queries Actor D /shells"
+Assert-Contains $rDShells.Content "MillingMachineTypeAAS" "Actor D returns MillingMachineTypeAAS"
 
-    $rDSim = Invoke-WebRequest -Uri "$ActorDGw/submodels/$SmDSim" -Headers $headersE -Method Get -UseBasicParsing
-    Assert-Status $rDSim.StatusCode 200 "Customer E receives Simulation Submodel from Actor D"
-    Assert-Contains $rDSim.Content "KinematicAndThermalFEA" "Simulation model contains FEA parameters"
-} catch {
-    Write-Host "  [FAIL] Customer E failed to query Actor D: $_" -ForegroundColor Red
-    $global:FailedTests++
-}
+$rDSim = Invoke-DataspaceHttp -Uri "$ActorDGw/submodels/$SmDSim" -Headers $headersE
+Assert-Status $rDSim.StatusCode 200 "Customer E receives Simulation Submodel from Actor D"
+Assert-Contains $rDSim.Content "KinematicAndThermalFEA" "Simulation model contains FEA parameters"
 
 # Phase 4: Access Control on Actor E: Nameplate vs TimeSeries
 Log-Step "Phase 4: Access Control on Actor E: Nameplate vs TimeSeries"
@@ -195,43 +243,27 @@ Log-Step "Phase 4: Access Control on Actor E: Nameplate vs TimeSeries"
 $SmENameplate  = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("urn:dataspace:e:sm:nameplate"))
 $SmETimeSeries = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("urn:dataspace:e:sm:timeseries"))
 
-try {
-    $headersD = @{ Authorization = "Bearer $TokenD" }
-    $rENpD = Invoke-WebRequest -Uri "$ActorEGw/submodels/$SmENameplate" -Headers $headersD -Method Get -UseBasicParsing
-    Assert-Status $rENpD.StatusCode 200 "Actor D reads Actor E Nameplate ('andere sehen Nameplate')"
-} catch {
-    Write-Host "  [FAIL] Actor D failed to read Nameplate: $_" -ForegroundColor Red
-    $global:FailedTests++
-}
+$headersD = @{ Authorization = "Bearer $TokenD" }
+$rENpD = Invoke-DataspaceHttp -Uri "$ActorEGw/submodels/$SmENameplate" -Headers $headersD
+Assert-Status $rENpD.StatusCode 200 "Actor D reads Actor E Nameplate ('andere sehen Nameplate')"
 
-try {
-    $rETsD = Invoke-WebRequest -Uri "$ActorEGw/submodels/$SmETimeSeries" -Headers $headersD -Method Get -UseBasicParsing -ErrorAction Stop
-    Write-Host "  [FAIL] Actor D should not have access to TimeSeries SM (HTTP $($rETsD.StatusCode))" -ForegroundColor Red
-    $global:FailedTests++
-} catch {
-    $code = $_.Exception.Response.StatusCode.value__
-    if ($code -eq 401 -or $code -eq 403) {
-        Write-Host "  [PASS] Actor D is denied access to Actor E TimeSeries SM (HTTP $code)" -ForegroundColor Green
-        $global:PassedTests++
-    } else {
-        Write-Host "  [FAIL] Expected 401/403, got $code" -ForegroundColor Red
-        $global:FailedTests++
-    }
+$rETsD = Invoke-DataspaceHttp -Uri "$ActorEGw/submodels/$SmETimeSeries" -Headers $headersD
+if ($rETsD.StatusCode -eq 401 -or $rETsD.StatusCode -eq 403) {
+    Write-Host "  [PASS] Actor D is denied access to Actor E TimeSeries SM (HTTP $($rETsD.StatusCode))" -ForegroundColor Green
+    $script:PassedTests++
+} else {
+    Write-Host "  [FAIL] Expected 401/403 for Actor D on TimeSeries, got $($rETsD.StatusCode)" -ForegroundColor Red
+    $script:FailedTests++
 }
 
 # Phase 5: Customer F queries Actor E TimeSeries Submodel
 Log-Step "Phase 5: Customer F queries Actor E TimeSeries Submodel"
 
-try {
-    $headersF = @{ Authorization = "Bearer $TokenF" }
-    $rETsF = Invoke-WebRequest -Uri "$ActorEGw/submodels/$SmETimeSeries" -Headers $headersF -Method Get -UseBasicParsing
-    Assert-Status $rETsF.StatusCode 200 "Customer F receives TimeSeries Submodel from Actor E"
-    Assert-Contains $rETsF.Content "ProcessRecordCount" "TimeSeries contains process record count"
-    Assert-Contains $rETsF.Content "AverageMillingTemperatureCelsius" "TimeSeries contains milling temperature"
-} catch {
-    Write-Host "  [FAIL] Customer F failed to query TimeSeries: $_" -ForegroundColor Red
-    $global:FailedTests++
-}
+$headersF = @{ Authorization = "Bearer $TokenF" }
+$rETsF = Invoke-DataspaceHttp -Uri "$ActorEGw/submodels/$SmETimeSeries" -Headers $headersF
+Assert-Status $rETsF.StatusCode 200 "Customer F receives TimeSeries Submodel from Actor E"
+Assert-Contains $rETsF.Content "ProcessRecordCount" "TimeSeries contains process record count"
+Assert-Contains $rETsF.Content "AverageMillingTemperatureCelsius" "TimeSeries contains milling temperature"
 
 Log-Header "Verification Summary"
 Write-Host "Total Tests Passed: $PassedTests" -ForegroundColor Green
@@ -239,6 +271,8 @@ Write-Host "Total Tests Failed: $FailedTests" -ForegroundColor $(if ($FailedTest
 
 if ($FailedTests -eq 0) {
     Write-Host "`nAll 6-Actor Dataspace Requirements Satisfied Successfully!`n" -ForegroundColor Green
+    exit 0
 } else {
     Write-Host "`nSome tests failed. Check logs above.`n" -ForegroundColor Red
+    exit 1
 }
