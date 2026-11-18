@@ -1,10 +1,11 @@
 # ==============================================================================
 # verify_6actor_chain.ps1
 # Windows PowerShell 5.1 & 7+ End-to-End Verification of the 6-Actor Dataspace
-# Connects via 127.0.0.1 + Host header fallback so it works on Windows even
-# without editing C:\Windows\System32\drivers\etc\hosts
+# Uses HttpWebRequest with explicit .Host property and 127.0.0.1 routing so it
+# works on Windows without requiring C:\Windows\System32\drivers\etc\hosts
 # ==============================================================================
 $ErrorActionPreference = "Continue"
+[System.Net.ServicePointManager]::DefaultConnectionLimit = 100
 
 $PassedTests = 0
 $FailedTests = 0
@@ -39,8 +40,8 @@ function Assert-Contains($haystack, $needle, $desc) {
     }
 }
 
-# Helper that resolves *.localhost to 127.0.0.1 with Host header so Windows
-# PowerShell 5.1 works without requiring C:\Windows\System32\drivers\etc\hosts
+# Helper that routes *.localhost to 127.0.0.1 and sets $req.Host directly
+# (avoids .NET WebHeaderCollection ArgumentException on the 'Host' header)
 function Invoke-DataspaceHttp {
     param(
         [string]$Uri,
@@ -54,47 +55,84 @@ function Invoke-DataspaceHttp {
     $targetHost = $parsed.Host
     $targetUri = $Uri
 
-    $reqHeaders = @{}
-    foreach ($k in $Headers.Keys) {
-        $reqHeaders[$k] = $Headers[$k]
-    }
-
     if ($targetHost -like "*.localhost") {
         $portPart = if ($parsed.IsDefaultPort) { "" } else { ":$($parsed.Port)" }
         $targetUri = "$($parsed.Scheme)://127.0.0.1$portPart$($parsed.PathAndQuery)"
-        $reqHeaders["Host"] = $targetHost
     }
 
+    $resp = $null
     try {
-        $params = @{
-            Uri             = $targetUri
-            Method          = $Method
-            Headers         = $reqHeaders
-            UseBasicParsing = $true
-            TimeoutSec      = 10
-            ErrorAction     = "Stop"
+        $req = [System.Net.HttpWebRequest]::Create($targetUri)
+        $req.Method = $Method
+        $req.Timeout = 10000
+        $req.ReadWriteTimeout = 10000
+        $req.KeepAlive = $false
+
+        if ($targetHost -like "*.localhost") {
+            $req.Host = if ($parsed.IsDefaultPort) { $targetHost } else { "$($targetHost):$($parsed.Port)" }
         }
-        if ($null -ne $Body) {
-            $params["Body"] = $Body
+
+        foreach ($k in $Headers.Keys) {
+            if ($k -ieq "Accept") {
+                $req.Accept = $Headers[$k]
+            } elseif ($k -ieq "Host") {
+                $req.Host = $Headers[$k]
+            } elseif ($k -ieq "Content-Type") {
+                $req.ContentType = $Headers[$k]
+            } else {
+                $req.Headers.Add($k, $Headers[$k])
+            }
         }
+
         if ($null -ne $ContentType) {
-            $params["ContentType"] = $ContentType
+            $req.ContentType = $ContentType
         }
-        $resp = Invoke-WebRequest @params
+
+        if ($null -ne $Body) {
+            $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($Body)
+            $req.ContentLength = $bodyBytes.Length
+            $reqStream = $req.GetRequestStream()
+            $reqStream.Write($bodyBytes, 0, $bodyBytes.Length)
+            $reqStream.Close()
+        }
+
+        $resp = [System.Net.HttpWebResponse]$req.GetResponse()
+        $statusCode = [int]$resp.StatusCode
+        $reader = New-Object System.IO.StreamReader($resp.GetResponseStream(), [System.Text.Encoding]::UTF8)
+        $content = $reader.ReadToEnd()
+        $reader.Close()
+
         return @{
-            StatusCode = [int]$resp.StatusCode
-            Content    = $resp.Content
+            StatusCode = $statusCode
+            Content    = $content
         }
-    } catch {
+    } catch [System.Net.WebException] {
         $statusCode = 0
         $errBody = ""
         if ($_.Exception.Response) {
-            $statusCode = [int]$_.Exception.Response.StatusCode.value__
+            $errResp = [System.Net.HttpWebResponse]$_.Exception.Response
+            $statusCode = [int]$errResp.StatusCode
+            try {
+                $reader = New-Object System.IO.StreamReader($errResp.GetResponseStream(), [System.Text.Encoding]::UTF8)
+                $errBody = $reader.ReadToEnd()
+                $reader.Close()
+            } catch {}
+            $errResp.Close()
         }
         return @{
             StatusCode = $statusCode
             Content    = $errBody
             Error      = $_.Exception.Message
+        }
+    } catch {
+        return @{
+            StatusCode = 0
+            Content    = ""
+            Error      = $_.Exception.Message
+        }
+    } finally {
+        if ($null -ne $resp) {
+            $resp.Close()
         }
     }
 }
@@ -119,7 +157,7 @@ function Check-Health($url, $name) {
         Write-Host "  [PASS] $name is reachable (HTTP 200)" -ForegroundColor Green
         $script:PassedTests++
     } else {
-        Write-Host "  [FAIL] $name unreachable at $url (HTTP $($resp.StatusCode))" -ForegroundColor Red
+        Write-Host "  [FAIL] $name unreachable at $url (HTTP $($resp.StatusCode)) $($resp.Error)" -ForegroundColor Red
         $script:FailedTests++
     }
 }
@@ -200,7 +238,7 @@ function Get-Token($realm, $clientId, $clientSecret) {
         $json = $resp.Content | ConvertFrom-Json
         return $json.access_token
     }
-    Write-Host "  [FAIL] Failed to obtain token from realm $realm (HTTP $($resp.StatusCode))" -ForegroundColor Red
+    Write-Host "  [FAIL] Failed to obtain token from realm $realm (HTTP $($resp.StatusCode)) $($resp.Error)" -ForegroundColor Red
     return $null
 }
 
