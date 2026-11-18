@@ -288,7 +288,7 @@ spec:
           command:
             - sh
             - -c
-            - "alembic upgrade head && python -m scripts.import_descriptors /app/data/dataspace-actors.seed.json || true; exec company-lookup"
+            - "until alembic upgrade head && python -m scripts.import_descriptors /app/data/dataspace-actors.seed.json; do echo 'Waiting for company-lookup-db...'; sleep 2; done; exec company-lookup"
           ports:
             - containerPort: {{ .Values.companyLookup.port }}
               name: http

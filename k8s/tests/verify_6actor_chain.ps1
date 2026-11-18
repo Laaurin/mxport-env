@@ -64,8 +64,8 @@ function Invoke-DataspaceHttp {
     try {
         $req = [System.Net.HttpWebRequest]::Create($targetUri)
         $req.Method = $Method
-        $req.Timeout = 10000
-        $req.ReadWriteTimeout = 10000
+        $req.Timeout = 30000
+        $req.ReadWriteTimeout = 30000
         $req.KeepAlive = $false
 
         if ($targetHost -like "*.localhost") {
@@ -182,7 +182,7 @@ function Resolve-ActorGateway($assetId, $label) {
             }
         } catch {}
     }
-    Write-Host "  [FAIL] Failed to resolve $label via Lookup ($assetId)" -ForegroundColor Red
+    Write-Host "  [FAIL] Failed to resolve $label via Lookup ($assetId) [HTTP $($resp.StatusCode)]" -ForegroundColor Red
     $script:FailedTests++
     return $null
 }
