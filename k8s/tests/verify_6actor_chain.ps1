@@ -84,11 +84,11 @@ function Invoke-DataspaceHttp {
             }
         }
 
-        if ($null -ne $ContentType) {
+        if (-not [string]::IsNullOrEmpty($ContentType)) {
             $req.ContentType = $ContentType
         }
 
-        if ($null -ne $Body) {
+        if (-not [string]::IsNullOrEmpty($Body)) {
             $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($Body)
             $req.ContentLength = $bodyBytes.Length
             $reqStream = $req.GetRequestStream()
