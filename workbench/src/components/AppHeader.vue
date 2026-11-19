@@ -15,6 +15,7 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'select-actor', actorId: string): void;
   (e: 'change-view', view: ActiveViewTab): void;
+  (e: 'open-admin'): void;
 }>();
 
 const showMenu = ref(false);
@@ -73,7 +74,17 @@ onBeforeUnmount(() => {
       </nav>
     </div>
 
-    <div ref="menuRef" class="profile-switcher">
+    <div class="header-right">
+      <button
+        type="button"
+        class="admin-link-btn"
+        title="Zugriffsrechte, eigene AAS-Modelle & Akteure verwalten"
+        @click="emit('open-admin')"
+      >
+        Verwaltung
+      </button>
+
+      <div ref="menuRef" class="profile-switcher">
       <button
         type="button"
         class="profile-trigger"
@@ -100,6 +111,7 @@ onBeforeUnmount(() => {
           </div>
         </button>
       </div>
+    </div>
     </div>
   </header>
 </template>
@@ -161,6 +173,29 @@ onBeforeUnmount(() => {
 
 .profile-switcher {
   position: relative;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.admin-link-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  padding: 0.38rem 0.65rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.admin-link-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  background-color: var(--bg-elevated);
 }
 
 .profile-trigger {

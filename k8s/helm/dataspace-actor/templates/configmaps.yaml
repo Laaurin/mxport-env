@@ -30,6 +30,41 @@ data:
 
         location = /healthz { return 200 "OK\n"; }
 
+        {{- if .Values.secsm.enabled }}
+        # Security Submodel Admin API proxy for dynamic RBAC management by the actor
+        location ~ ^/secsm(?<secsm_path>/.*)?$ {
+          if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' $http_origin always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD' always;
+            add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, Origin, X-Requested-With, X-Dataspace-Target-Host' always;
+            add_header 'Access-Control-Allow-Credentials' 'true' always;
+            add_header 'Content-Length' 0;
+            add_header 'Content-Type' 'text/plain; charset=utf-8';
+            return 204;
+          }
+
+          add_header 'Access-Control-Allow-Origin' $http_origin always;
+          add_header 'Access-Control-Allow-Credentials' 'true' always;
+          add_header 'Access-Control-Allow-Headers' 'Authorization, Content-Type, Accept, Origin, X-Requested-With, X-Dataspace-Target-Host' always;
+          add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD' always;
+
+          set $secsm_upstream "http://{{ .Release.Name }}-secsm.{{ .Release.Namespace }}.svc.cluster.local:8081/submodels/U2VjdXJpdHlTdWJtb2RlbA==$secsm_path$is_args$args";
+
+          access_by_lua_block {
+            require("sts").auth_secsm({
+              namespace = "{{ .Release.Namespace }}",
+            })
+          }
+
+          proxy_pass $secsm_upstream;
+          proxy_set_header Host "{{ .Release.Name }}-secsm:8081";
+          proxy_hide_header Access-Control-Allow-Origin;
+          proxy_hide_header Access-Control-Allow-Credentials;
+          proxy_hide_header Access-Control-Allow-Headers;
+          proxy_hide_header Access-Control-Allow-Methods;
+        }
+        {{- end }}
+
         # Outbound proxy: Forward requests to another dataspace actor
         location ~ ^/external/(?<provider_host>[^/]+)(?<provider_path>/.*)$ {
           set $provider_target "";
@@ -317,6 +352,39 @@ data:
       ngx.req.set_header("Authorization", "Bearer " .. target_token)
     end
 
+    function _M.auth_secsm(opts)
+      opts = opts or {}
+      local cache = ngx.shared[opts.cache_name or "sts_token_cache"]
+      local cache_key = "kc_basyx_workstation_tok"
+      local tok = cache and cache:get(cache_key)
+      if not tok then
+        local ns = opts.namespace or "dataspace"
+        local kc_url = "http://keycloak." .. ns .. ".svc.cluster.local:8080/realms/BaSyx/protocol/openid-connect/token"
+        local httpc = http.new()
+        local res, err = httpc:request_uri(kc_url, {
+          method  = "POST",
+          headers = {
+            ["Content-Type"] = "application/x-www-form-urlencoded",
+            ["Host"]         = "keycloak:8080",
+          },
+          body    = "grant_type=client_credentials&client_id=workstation-1&client_secret=nY0mjyECF60DGzNmQUjL81XurSl8etom&scope=openid",
+        })
+        if res and res.status == 200 and res.body then
+          local ok, data = pcall(cjson.decode, res.body)
+          if ok and data and data.access_token then
+            tok = data.access_token
+            local ttl = math.max(30, (tonumber(data.expires_in) or 300) - 30)
+            if cache then cache:set(cache_key, tok, ttl) end
+          end
+        else
+          ngx.log(ngx.ERR, "sts.auth_secsm: failed to obtain BaSyx admin token: ", err or (res and res.status))
+        end
+      end
+      if tok then
+        ngx.req.set_header("Authorization", "Bearer " .. tok)
+      end
+    end
+
     return _M
 {{- if .Values.sts.enabled }}
 ---
@@ -579,8 +647,11 @@ data:
   {{- end }}
 
   model.json: |-
+{{- $customModelPath := printf "files/custom-models/%s.json" .Values.actor.name }}
 {{- if .Values.aasModel }}
 {{ toJson .Values.aasModel | indent 4 }}
+{{- else if (.Files.Glob $customModelPath) }}
+{{ .Files.Get $customModelPath | indent 4 }}
 {{- else }}
 {{ .Files.Get (printf "files/models/%s.json" .Values.actor.name) | indent 4 }}
 {{- end }}

@@ -9,6 +9,7 @@ import DataspacePipelineFlow from './components/DataspacePipelineFlow.vue';
 import HttpResponsePreview from './components/HttpResponsePreview.vue';
 import SupplierComparisonView from './components/SupplierComparisonView.vue';
 import CompanyLookupDirectoryView from './components/CompanyLookupDirectoryView.vue';
+import DataspaceAdminDrawer from './components/DataspaceAdminDrawer.vue';
 // Optionales eingebettetes BaSyx-Iframe (ausgelagert in BasyxViewerEmbed.vue):
 // import BasyxViewerEmbed from './components/BasyxViewerEmbed.vue';
 
@@ -31,6 +32,7 @@ const selectedIdentityId = ref<string>('actor-f');
 // Die aktuell gewählte Ziel-URN bleibt im State erhalten, auch wenn der Akteur gewechselt wird
 const targetUrnInput = ref<string>('urn:dataspace:e:aas:produced-part-001');
 const activeView = ref<ActiveViewTab>('overview');
+const showAdminDrawer = ref<boolean>(false);
 
 const activeToken = ref<string | null>(null);
 const decodedToken = ref<Record<string, any> | null>(null);
@@ -199,6 +201,11 @@ async function handleChangeView(view: ActiveViewTab) {
   }
 }
 
+async function handleAdminUpdated() {
+  await refreshLookupDirectory();
+  await runLookupAndFetch(true);
+}
+
 onMounted(async () => {
   await refreshLookupDirectory();
   await selectIdentity('actor-f');
@@ -215,6 +222,15 @@ onMounted(async () => {
       :company-count="registeredCompanies.length"
       @select-actor="selectIdentity"
       @change-view="handleChangeView"
+      @open-admin="showAdminDrawer = true"
+    />
+
+    <DataspaceAdminDrawer
+      v-if="showAdminDrawer"
+      :actor="currentIdentity"
+      @close="showAdminDrawer = false"
+      @updated="handleAdminUpdated"
+      @actor-deleted="(fallbackId) => selectIdentity(fallbackId)"
     />
 
     <ResourceControlBar

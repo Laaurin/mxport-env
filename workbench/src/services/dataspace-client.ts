@@ -1075,3 +1075,724 @@ export async function compareSuppliersViaLookup(
 
   return results;
 }
+
+// ============================================================================
+// Secondary Administration Features:
+// 1. Live Access Control Management via BaSyx Security Submodel (/secsm)
+// 2. Runtime Custom AAS / Submodel JSON Import (POST /shells, POST /submodels)
+// 3. Adding Custom Dataspace Actors (Company Lookup + Local Registry)
+// ============================================================================
+
+export interface SecurityRuleSummary {
+  idShort: string;
+  role: string;
+  actions: string[];
+  targetType: 'submodel' | 'aas' | 'concept-description' | 'aas-environment';
+  targetIds: string[];
+}
+
+export interface ActorRepositoryOverview {
+  hasSecuritySubmodel: boolean;
+  shells: Array<{ id: string; idShort: string }>;
+  submodels: Array<{ id: string; idShort: string }>;
+  rules: SecurityRuleSummary[];
+}
+
+const SUBMODEL_TARGET_CLASS =
+  'org.eclipse.digitaltwin.basyx.submodelservice.feature.authorization.SubmodelTargetInformation';
+const AAS_TARGET_CLASS =
+  'org.eclipse.digitaltwin.basyx.aasrepository.feature.authorization.AasTargetInformation';
+
+const CUSTOM_ACTORS_STORAGE_KEY = 'dataspace_custom_actors_v1';
+const CUSTOM_RESOURCES_STORAGE_KEY = 'dataspace_custom_resources_v1';
+const BUILTIN_ACTOR_IDS = new Set(['actor-a', 'actor-b', 'actor-c', 'actor-d', 'actor-e', 'actor-f']);
+
+export function isBuiltinActor(actorId: string): boolean {
+  return BUILTIN_ACTOR_IDS.has(actorId);
+}
+
+function saveCustomActorsToStorage(): void {
+  try {
+    const customActors = ACTORS.filter((a) => !BUILTIN_ACTOR_IDS.has(a.id));
+    localStorage.setItem(CUSTOM_ACTORS_STORAGE_KEY, JSON.stringify(customActors));
+  } catch {
+    // Ignore storage error
+  }
+}
+
+function saveCustomResourcesToStorage(customItem: DataspaceResourceItem): void {
+  try {
+    const raw = localStorage.getItem(CUSTOM_RESOURCES_STORAGE_KEY);
+    const list: DataspaceResourceItem[] = raw ? JSON.parse(raw) : [];
+    const idx = list.findIndex((r) => r.urn === customItem.urn);
+    if (idx >= 0) {
+      list[idx] = customItem;
+    } else {
+      list.push(customItem);
+    }
+    localStorage.setItem(CUSTOM_RESOURCES_STORAGE_KEY, JSON.stringify(list));
+  } catch {
+    // Ignore
+  }
+}
+
+function removeCustomResourceFromStorage(urn: string): void {
+  try {
+    const raw = localStorage.getItem(CUSTOM_RESOURCES_STORAGE_KEY);
+    if (!raw) return;
+    const list: DataspaceResourceItem[] = JSON.parse(raw);
+    const filtered = list.filter((r) => r.urn !== urn);
+    localStorage.setItem(CUSTOM_RESOURCES_STORAGE_KEY, JSON.stringify(filtered));
+  } catch {
+    // Ignore
+  }
+}
+
+export function restorePersistedCustomizations(): void {
+  try {
+    const rawActors = localStorage.getItem(CUSTOM_ACTORS_STORAGE_KEY);
+    if (rawActors) {
+      const customActors: ActorDefinition[] = JSON.parse(rawActors);
+      for (const ca of customActors) {
+        if (ca && ca.id && !ACTORS.some((a) => a.id === ca.id)) {
+          ACTORS.push(ca);
+        }
+      }
+    }
+    const rawRes = localStorage.getItem(CUSTOM_RESOURCES_STORAGE_KEY);
+    if (rawRes) {
+      const customRes: DataspaceResourceItem[] = JSON.parse(rawRes);
+      for (const cr of customRes) {
+        if (cr && cr.urn && !DATASPACE_RESOURCES.some((r) => r.urn === cr.urn)) {
+          DATASPACE_RESOURCES.push(cr);
+        }
+      }
+    }
+  } catch {
+    // Ignore
+  }
+}
+
+// Immediately restore any persisted custom actors/resources on module load
+restorePersistedCustomizations();
+
+function buildRbacRuleKey(role: string, action: string, targetClass: string): string {
+  return btoa(`${role}${action}${targetClass}`);
+}
+
+function parseSmcRule(smc: any): SecurityRuleSummary | null {
+  if (!smc || !Array.isArray(smc.value)) return null;
+  const roleProp = smc.value.find((e: any) => e.idShort === 'role');
+  const actionList = smc.value.find((e: any) => e.idShort === 'action');
+  const targetSmc = smc.value.find((e: any) => e.idShort === 'targetInformation');
+  if (!roleProp || !targetSmc || !Array.isArray(targetSmc.value)) return null;
+
+  const role = String(roleProp.value || '');
+  const actions: string[] = Array.isArray(actionList?.value)
+    ? actionList.value.map((p: any) => String(p.value || 'READ'))
+    : ['READ'];
+
+  const typeProp = targetSmc.value.find((e: any) => e.idShort === '@type');
+  const targetType = (typeProp?.value || 'submodel') as SecurityRuleSummary['targetType'];
+
+  const idsElem =
+    targetSmc.value.find((e: any) => e.idShort === 'submodelIds') ||
+    targetSmc.value.find((e: any) => e.idShort === 'aasIds') ||
+    targetSmc.value.find((e: any) => e.idShort === 'conceptDescriptionIds');
+
+  const targetIds: string[] = Array.isArray(idsElem?.value)
+    ? idsElem.value.map((p: any) => String(p.value || ''))
+    : [];
+
+  return {
+    idShort: smc.idShort,
+    role,
+    actions,
+    targetType,
+    targetIds,
+  };
+}
+
+function buildSubmodelReadSmc(role: string, submodelIds: string[]) {
+  const idShort = buildRbacRuleKey(role, 'READ', SUBMODEL_TARGET_CLASS);
+  return {
+    modelType: 'SubmodelElementCollection',
+    idShort,
+    value: [
+      {
+        modelType: 'Property',
+        idShort: 'role',
+        valueType: 'xs:string',
+        value: role,
+      },
+      {
+        modelType: 'SubmodelElementList',
+        idShort: 'action',
+        orderRelevant: true,
+        typeValueListElement: 'Property',
+        valueTypeListElement: 'xs:string',
+        value: [
+          {
+            modelType: 'Property',
+            valueType: 'xs:string',
+            value: 'READ',
+          },
+        ],
+      },
+      {
+        modelType: 'SubmodelElementCollection',
+        idShort: 'targetInformation',
+        value: [
+          {
+            modelType: 'SubmodelElementList',
+            idShort: 'submodelIds',
+            orderRelevant: true,
+            typeValueListElement: 'Property',
+            valueTypeListElement: 'xs:string',
+            value: submodelIds.map((id) => ({
+              modelType: 'Property',
+              valueType: 'xs:string',
+              value: id,
+            })),
+          },
+          {
+            modelType: 'SubmodelElementList',
+            idShort: 'submodelElementIdShortPaths',
+            orderRelevant: true,
+            typeValueListElement: 'Property',
+            valueTypeListElement: 'xs:string',
+            value: [
+              {
+                modelType: 'Property',
+                valueType: 'xs:string',
+                value: '*',
+              },
+            ],
+          },
+          {
+            modelType: 'Property',
+            idShort: '@type',
+            valueType: 'xs:string',
+            value: 'submodel',
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function buildAasReadSmc(role: string, aasIds: string[]) {
+  const idShort = buildRbacRuleKey(role, 'READ', AAS_TARGET_CLASS);
+  return {
+    modelType: 'SubmodelElementCollection',
+    idShort,
+    value: [
+      {
+        modelType: 'Property',
+        idShort: 'role',
+        valueType: 'xs:string',
+        value: role,
+      },
+      {
+        modelType: 'SubmodelElementList',
+        idShort: 'action',
+        orderRelevant: true,
+        typeValueListElement: 'Property',
+        valueTypeListElement: 'xs:string',
+        value: [
+          {
+            modelType: 'Property',
+            valueType: 'xs:string',
+            value: 'READ',
+          },
+        ],
+      },
+      {
+        modelType: 'SubmodelElementCollection',
+        idShort: 'targetInformation',
+        value: [
+          {
+            modelType: 'SubmodelElementList',
+            idShort: 'aasIds',
+            orderRelevant: true,
+            typeValueListElement: 'Property',
+            valueTypeListElement: 'xs:string',
+            value: aasIds.map((id) => ({
+              modelType: 'Property',
+              valueType: 'xs:string',
+              value: id,
+            })),
+          },
+          {
+            modelType: 'Property',
+            idShort: '@type',
+            valueType: 'xs:string',
+            value: 'aas',
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export async function fetchActorRepositoryOverview(
+  actor: ActorDefinition
+): Promise<ActorRepositoryOverview> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'X-Dataspace-Target-Host': actor.gatewayHost,
+  };
+
+  if (actor.hasAuth) {
+    try {
+      const tok = await getAccessToken(actor.id);
+      if (tok?.token) {
+        headers['Authorization'] = `Bearer ${tok.token}`;
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  const [shellsRes, submodelsRes, secsmRes] = await Promise.all([
+    fetch(`/cluster-api/host/${actor.gatewayHost}/shells`, { headers }).catch(() => null),
+    fetch(`/cluster-api/host/${actor.gatewayHost}/submodels`, { headers }).catch(() => null),
+    fetch(`/cluster-api/host/${actor.gatewayHost}/secsm/submodel-elements`, {
+      headers: {
+        Accept: 'application/json',
+        'X-Dataspace-Target-Host': actor.gatewayHost,
+      },
+    }).catch(() => null),
+  ]);
+
+  const shellsJson = shellsRes && shellsRes.ok ? await shellsRes.json().catch(() => null) : null;
+  const submodelsJson =
+    submodelsRes && submodelsRes.ok ? await submodelsRes.json().catch(() => null) : null;
+  const secsmJson = secsmRes && secsmRes.ok ? await secsmRes.json().catch(() => null) : null;
+
+  const shells = Array.isArray(shellsJson?.result)
+    ? shellsJson.result.map((s: any) => ({ id: String(s.id), idShort: String(s.idShort || s.id) }))
+    : [];
+  const submodels = Array.isArray(submodelsJson?.result)
+    ? submodelsJson.result.map((sm: any) => ({
+        id: String(sm.id),
+        idShort: String(sm.idShort || sm.id),
+      }))
+    : [];
+
+  const hasSecuritySubmodel = !!(secsmRes && secsmRes.ok && Array.isArray(secsmJson?.result));
+  const rules: SecurityRuleSummary[] = hasSecuritySubmodel
+    ? (secsmJson.result as any[]).map(parseSmcRule).filter((r): r is SecurityRuleSummary => r !== null)
+    : [];
+
+  return {
+    hasSecuritySubmodel,
+    shells,
+    submodels,
+    rules,
+  };
+}
+
+export async function setRoleSubmodelAccess(
+  actor: ActorDefinition,
+  role: string,
+  submodelId: string,
+  allowed: boolean
+): Promise<ActorRepositoryOverview> {
+  const overview = await fetchActorRepositoryOverview(actor);
+  if (!overview.hasSecuritySubmodel) {
+    throw new Error(`${actor.name} besitzt kein aktives BaSyx Security Submodel.`);
+  }
+
+  const existingRule = overview.rules.find(
+    (r) => r.role === role && r.targetType === 'submodel' && r.actions.includes('READ')
+  );
+
+  let currentIds: string[] = [];
+  if (existingRule) {
+    if (existingRule.targetIds.includes('*')) {
+      currentIds = overview.submodels.map((s) => s.id);
+    } else {
+      currentIds = [...existingRule.targetIds];
+    }
+  }
+
+  const nextIds = allowed
+    ? Array.from(new Set([...currentIds, submodelId]))
+    : currentIds.filter((id) => id !== submodelId);
+
+  const smRuleKey = buildRbacRuleKey(role, 'READ', SUBMODEL_TARGET_CLASS);
+  const baseHeaders = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    'X-Dataspace-Target-Host': actor.gatewayHost,
+  };
+
+  // Delete existing Submodel rule first if present
+  if (existingRule) {
+    await fetch(
+      `/cluster-api/host/${actor.gatewayHost}/secsm/submodel-elements/${encodeURIComponent(existingRule.idShort)}`,
+      {
+        method: 'DELETE',
+        headers: baseHeaders,
+      }
+    );
+  } else {
+    await fetch(
+      `/cluster-api/host/${actor.gatewayHost}/secsm/submodel-elements/${encodeURIComponent(smRuleKey)}`,
+      {
+        method: 'DELETE',
+        headers: baseHeaders,
+      }
+    ).catch(() => null);
+  }
+
+  // Create updated Submodel rule if at least one submodel is allowed for this role
+  if (nextIds.length > 0) {
+    const smcPayload = buildSubmodelReadSmc(role, nextIds);
+    await fetch(`/cluster-api/host/${actor.gatewayHost}/secsm/submodel-elements`, {
+      method: 'POST',
+      headers: baseHeaders,
+      body: JSON.stringify(smcPayload),
+    });
+
+    // Also ensure the role has READ access on the actor's AAS shells so the viewer can load the shell
+    const existingAasRule = overview.rules.find(
+      (r) => r.role === role && r.targetType === 'aas' && r.actions.includes('READ')
+    );
+    if (!existingAasRule && overview.shells.length > 0) {
+      const aasPayload = buildAasReadSmc(
+        role,
+        overview.shells.map((s) => s.id)
+      );
+      await fetch(`/cluster-api/host/${actor.gatewayHost}/secsm/submodel-elements`, {
+        method: 'POST',
+        headers: baseHeaders,
+        body: JSON.stringify(aasPayload),
+      }).catch(() => null);
+    }
+  }
+
+  clearDataspaceCache();
+  return fetchActorRepositoryOverview(actor);
+}
+
+export async function resetActorSecurityRulesToDefault(
+  actor: ActorDefinition
+): Promise<ActorRepositoryOverview> {
+  if (actor.id === 'actor-e') {
+    await setRoleSubmodelAccess(actor, 'customer-e', 'urn:dataspace:e:sm:nameplate', true);
+    await setRoleSubmodelAccess(actor, 'customer-e', 'urn:dataspace:e:sm:timeseries', true);
+    await setRoleSubmodelAccess(actor, 'partner-d', 'urn:dataspace:e:sm:timeseries', false);
+    await setRoleSubmodelAccess(actor, 'partner-d', 'urn:dataspace:e:sm:nameplate', true);
+    await setRoleSubmodelAccess(actor, 'customer-d', 'urn:dataspace:e:sm:nameplate', false);
+    await setRoleSubmodelAccess(actor, 'customer-d', 'urn:dataspace:e:sm:timeseries', false);
+    await setRoleSubmodelAccess(actor, 'partner-f', 'urn:dataspace:e:sm:nameplate', false);
+    await setRoleSubmodelAccess(actor, 'partner-f', 'urn:dataspace:e:sm:timeseries', false);
+  } else if (actor.id === 'actor-d') {
+    await setRoleSubmodelAccess(actor, 'customer-d', 'urn:dataspace:d:sm:nameplate', true);
+    await setRoleSubmodelAccess(actor, 'customer-d', 'urn:dataspace:d:sm:technical-data', true);
+    await setRoleSubmodelAccess(actor, 'customer-d', 'urn:dataspace:d:sm:machine-simulation', true);
+    await setRoleSubmodelAccess(actor, 'partner-f', 'urn:dataspace:d:sm:machine-simulation', false);
+    await setRoleSubmodelAccess(actor, 'partner-f', 'urn:dataspace:d:sm:nameplate', true);
+    await setRoleSubmodelAccess(actor, 'partner-f', 'urn:dataspace:d:sm:technical-data', true);
+    await setRoleSubmodelAccess(actor, 'customer-e', 'urn:dataspace:d:sm:machine-simulation', false);
+  }
+  clearDataspaceCache();
+  return fetchActorRepositoryOverview(actor);
+}
+
+export async function deleteResourceFromActorRepo(
+  actor: ActorDefinition,
+  kind: 'AAS' | 'Submodel',
+  urn: string
+): Promise<ActorRepositoryOverview> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'X-Dataspace-Target-Host': actor.gatewayHost,
+  };
+  if (actor.hasAuth) {
+    const tok = await getAccessToken(actor.id);
+    if (tok?.token) {
+      headers['Authorization'] = `Bearer ${tok.token}`;
+    }
+  }
+
+  const segment = kind === 'AAS' ? 'shells' : 'submodels';
+  const encodedId = encodeURIComponent(toBase64(urn));
+  const res = await fetch(`/cluster-api/host/${actor.gatewayHost}/${segment}/${encodedId}`, {
+    method: 'DELETE',
+    headers,
+  });
+
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`Löschen von ${urn} fehlgeschlagen (HTTP ${res.status})`);
+  }
+
+  const resIdx = DATASPACE_RESOURCES.findIndex((r) => r.urn === urn);
+  if (resIdx >= 0) {
+    DATASPACE_RESOURCES.splice(resIdx, 1);
+  }
+  removeCustomResourceFromStorage(urn);
+  clearDataspaceCache();
+  return fetchActorRepositoryOverview(actor);
+}
+
+export async function importCustomModelsToActorRepo(
+  actor: ActorDefinition,
+  rawJson: string
+): Promise<{ importedShells: string[]; importedSubmodels: string[] }> {
+  const parsed = JSON.parse(rawJson);
+  const shellsToUpload: any[] = [];
+  const submodelsToUpload: any[] = [];
+
+  if (Array.isArray(parsed.assetAdministrationShells)) {
+    shellsToUpload.push(...parsed.assetAdministrationShells);
+  }
+  if (Array.isArray(parsed.submodels)) {
+    submodelsToUpload.push(...parsed.submodels);
+  }
+  if (parsed.modelType === 'AssetAdministrationShell') {
+    shellsToUpload.push(parsed);
+  } else if (parsed.modelType === 'Submodel') {
+    submodelsToUpload.push(parsed);
+  }
+
+  if (shellsToUpload.length === 0 && submodelsToUpload.length === 0) {
+    throw new Error(
+      'JSON muss entweder "assetAdministrationShells" / "submodels" enthalten oder vom modelType "AssetAdministrationShell" / "Submodel" sein.'
+    );
+  }
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    'X-Dataspace-Target-Host': actor.gatewayHost,
+  };
+
+  if (actor.hasAuth) {
+    const tok = await getAccessToken(actor.id);
+    if (tok?.token) {
+      headers['Authorization'] = `Bearer ${tok.token}`;
+    }
+  }
+
+  const importedSubmodels: string[] = [];
+  for (const sm of submodelsToUpload) {
+    if (!sm.id) continue;
+    let res = await fetch(`/cluster-api/host/${actor.gatewayHost}/submodels`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(sm),
+    });
+    if (res.status === 409 || res.status === 400) {
+      res = await fetch(
+        `/cluster-api/host/${actor.gatewayHost}/submodels/${encodeURIComponent(toBase64(sm.id))}`,
+        {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(sm),
+        }
+      );
+    }
+    if (!res.ok) {
+      throw new Error(`Fehler beim Upload von Submodel '${sm.id}' (HTTP ${res.status})`);
+    }
+    importedSubmodels.push(sm.id);
+    const customSmItem: DataspaceResourceItem = {
+      urn: sm.id,
+      ownerActorId: actor.id,
+      ownerLabel: `${actor.name} (${actor.role})`,
+      label: `${sm.idShort || sm.id} (Submodel)`,
+      kind: 'Submodel',
+      requiredRole: actor.hasAuth ? actor.configuredRoles.join(', ') : 'public',
+      originHint: `Benutzerdefiniertes Submodel in ${actor.name}`,
+    };
+    if (!DATASPACE_RESOURCES.some((r) => r.urn === sm.id)) {
+      DATASPACE_RESOURCES.push(customSmItem);
+    }
+    saveCustomResourcesToStorage(customSmItem);
+  }
+
+  const importedShells: string[] = [];
+  for (const aas of shellsToUpload) {
+    if (!aas.id) continue;
+    let res = await fetch(`/cluster-api/host/${actor.gatewayHost}/shells`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(aas),
+    });
+    if (res.status === 409 || res.status === 400) {
+      res = await fetch(
+        `/cluster-api/host/${actor.gatewayHost}/shells/${encodeURIComponent(toBase64(aas.id))}`,
+        {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(aas),
+        }
+      );
+    }
+    if (!res.ok) {
+      throw new Error(`Fehler beim Upload von AAS '${aas.id}' (HTTP ${res.status})`);
+    }
+    importedShells.push(aas.id);
+    const customAasItem: DataspaceResourceItem = {
+      urn: aas.id,
+      ownerActorId: actor.id,
+      ownerLabel: `${actor.name} (${actor.role})`,
+      label: `${aas.idShort || aas.id} (Shell)`,
+      kind: 'AAS',
+      requiredRole: actor.hasAuth ? actor.configuredRoles.join(', ') : 'public',
+      originHint: `Benutzerdefinierte AAS in ${actor.name}`,
+    };
+    if (!DATASPACE_RESOURCES.some((r) => r.urn === aas.id)) {
+      DATASPACE_RESOURCES.push(customAasItem);
+    }
+    saveCustomResourcesToStorage(customAasItem);
+  }
+
+  clearDataspaceCache();
+  return { importedShells, importedSubmodels };
+}
+
+export async function registerNewDataspaceActor(params: {
+  shortCode: string;
+  name: string;
+  role: string;
+  description: string;
+  gatewayHost: string;
+  viewerHost: string;
+  assetIdPrefix: string;
+  configuredRoles: string[];
+  realm?: string;
+  clientId?: string;
+  clientSecret?: string;
+}): Promise<ActorDefinition> {
+  const id = `actor-${params.shortCode.toLowerCase()}`;
+
+  // 1. Register in Company Lookup Service (POST /api/v2/companies)
+  const lookupPayload = {
+    name: `${params.name} - ${params.role}`,
+    domain: params.gatewayHost,
+    endpoints: [
+      {
+        interface: 'AAS-REPOSITORY-3.1',
+        protocolInformation: {
+          href: `http://${params.gatewayHost}/shells`,
+          endpointProtocol: 'HTTP',
+          endpointProtocolVersion: ['1.1'],
+        },
+      },
+      {
+        interface: 'SUBMODEL-REPOSITORY-3.1',
+        protocolInformation: {
+          href: `http://${params.gatewayHost}/submodels`,
+          endpointProtocol: 'HTTP',
+          endpointProtocolVersion: ['1.1'],
+        },
+      },
+    ],
+    nameOptions: [params.name, id, params.role],
+    assetIdRegexPatterns: [params.assetIdPrefix.startsWith('^') ? params.assetIdPrefix : `^${params.assetIdPrefix}`],
+  };
+
+  const postRes = await fetch('/cluster-api/lookup/api/v2/companies', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-API-Key': 'admin-secret-key',
+    },
+    body: JSON.stringify(lookupPayload),
+  });
+
+  if (postRes.status === 409) {
+    const encodedDomain = toBase64Url(params.gatewayHost);
+    await fetch(`/cluster-api/lookup/api/v2/companies/${encodedDomain}`, {
+      method: 'PUT',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-API-Key': 'admin-secret-key',
+      },
+      body: JSON.stringify(lookupPayload),
+    }).catch(() => null);
+  }
+
+  const hasAuth = !!(params.realm && params.clientId && params.clientSecret);
+  const newActor: ActorDefinition = {
+    id,
+    shortCode: params.shortCode.toUpperCase(),
+    name: params.name,
+    role: params.role,
+    description: params.description,
+    hasAuth,
+    gatewayHost: params.gatewayHost,
+    viewerHost: params.viewerHost,
+    configuredRoles: params.configuredRoles,
+    realm: params.realm || undefined,
+    clientId: params.clientId || undefined,
+    clientSecret: params.clientSecret || undefined,
+    knownUrns: [],
+  };
+
+  const existingIdx = ACTORS.findIndex((a) => a.id === id);
+  if (existingIdx >= 0) {
+    ACTORS[existingIdx] = newActor;
+  } else {
+    ACTORS.push(newActor);
+  }
+
+  saveCustomActorsToStorage();
+  clearDataspaceCache();
+  return newActor;
+}
+
+export async function deleteDataspaceActor(actorId: string, domain: string): Promise<void> {
+  if (isBuiltinActor(actorId)) {
+    throw new Error('Standard-Akteure (A–F) können nicht gelöscht werden.');
+  }
+
+  // 1. Delete from Company Lookup PostgreSQL DB (DELETE /api/v2/companies/{base64url(domain)})
+  const isSharedBuiltinDomain = ACTORS.some(
+    (a) => isBuiltinActor(a.id) && a.gatewayHost.toLowerCase() === domain.toLowerCase()
+  );
+  if (!isSharedBuiltinDomain && domain) {
+    const encodedDomain = toBase64Url(domain);
+    await fetch(`/cluster-api/lookup/api/v2/companies/${encodedDomain}`, {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        'X-API-Key': 'admin-secret-key',
+      },
+    }).catch(() => null);
+  }
+
+  // 2. Remove from ACTORS and localStorage
+  const idx = ACTORS.findIndex((a) => a.id === actorId);
+  if (idx >= 0) {
+    ACTORS.splice(idx, 1);
+  }
+  saveCustomActorsToStorage();
+  clearDataspaceCache();
+}
+
+export async function deleteCompanyLookupRecordByDomain(domain: string): Promise<void> {
+  const encodedDomain = toBase64Url(domain);
+  const res = await fetch(`/cluster-api/lookup/api/v2/companies/${encodedDomain}`, {
+    method: 'DELETE',
+    headers: {
+      Accept: 'application/json',
+      'X-API-Key': 'admin-secret-key',
+    },
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`Löschen von '${domain}' im Company Lookup fehlgeschlagen (HTTP ${res.status})`);
+  }
+  const actorIdx = ACTORS.findIndex((a) => !isBuiltinActor(a.id) && a.gatewayHost === domain);
+  if (actorIdx >= 0) {
+    ACTORS.splice(actorIdx, 1);
+    saveCustomActorsToStorage();
+  }
+  clearDataspaceCache();
+}
