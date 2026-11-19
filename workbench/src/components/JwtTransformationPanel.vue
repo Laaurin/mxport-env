@@ -45,195 +45,129 @@ async function copyToken(text: string | null | undefined, key: string) {
       if (copiedKey.value === key) copiedKey.value = null;
     }, 1800);
   } catch {
-    // Ignore clipboard error
+    // Ignore
   }
 }
 </script>
 
 <template>
   <section class="panel-card">
-    <!-- Compact 1-Line Summary Bar (Always Visible) -->
     <div class="panel-header-row">
-      <div class="panel-title-group">
-        <span class="badge badge-sts">JWT Transformation</span>
+      <div class="jwt-summary-left">
+        <h2 class="panel-title">JWT Token-Umwandlung</h2>
 
-        <template v-if="sourceRaw">
-          <div class="token-summary-chain">
-            <span class="token-node">
-              <strong>INPUT:</strong> Keycloak (<code>{{ actor.realm }}</code>)
-              <span v-if="activeRoles.length" class="badge badge-ok badge-mono">
-                {{ activeRoles.join(', ') }}
-              </span>
-            </span>
-
-            <span class="chain-arrow">-></span>
-
-            <span v-if="exchangedBundle" class="token-node">
-              <strong>OUTPUT:</strong> MX-Port Leo STS (<code>{{ exchangedBundle.payload?.iss }}</code>)
-              <span class="badge badge-sts badge-mono">aud={{ exchangedBundle.payload?.aud }}</span>
-            </span>
-            <span v-else class="token-node muted">
-              <strong>OUTPUT:</strong> Kein STS-Tausch (Ziel-Endpunkt öffentlich)
-            </span>
-          </div>
-        </template>
-
-        <span v-else class="token-node muted">
-          Öffentlicher Akteur ({{ actor.name }}) — kein Keycloak-Token im Einsatz
+        <span v-if="sourceRaw" class="jwt-summary-text">
+          Keycloak ({{ actor.realm }}) ->
+          {{ exchangedBundle ? `STS (${exchangedBundle.payload?.aud})` : 'Kein STS-Tausch' }}
+        </span>
+        <span v-else class="jwt-summary-text">
+          Öffentlicher Aufruf ohne Token
         </span>
       </div>
 
-      <div class="token-action-group">
+      <div class="jwt-actions">
         <button
           v-if="sourceRaw"
           type="button"
           class="btn btn-sm"
           @click="copyToken(sourceRaw, 'src')"
         >
-          {{ copiedKey === 'src' ? 'Keycloak JWT kopiert' : 'Keycloak JWT kopieren' }}
+          {{ copiedKey === 'src' ? 'Keycloak-Token kopiert' : 'Keycloak-Token kopieren' }}
         </button>
 
         <button
           v-if="exchangedBundle?.raw"
           type="button"
-          class="btn btn-sm btn-sts"
+          class="btn btn-sm"
           @click="copyToken(exchangedBundle.raw, 'sts')"
         >
-          {{ copiedKey === 'sts' ? 'STS JWT kopiert' : 'STS JWT kopieren' }}
+          {{ copiedKey === 'sts' ? 'STS-Token kopiert' : 'STS-Token kopieren' }}
         </button>
 
         <button
           type="button"
           class="btn btn-sm"
-          :class="{ 'btn-active': expanded }"
           @click="expanded = !expanded"
         >
-          {{ expanded ? 'Token-Details einklappen' : 'Dekodieren & Vergleichen' }}
+          {{ expanded ? 'Token-Decoder einklappen' : 'Tokens dekodieren & vergleichen' }}
         </button>
       </div>
     </div>
 
-    <!-- Collapsible Side-by-Side Comparison & Decoder -->
-    <div v-if="expanded" class="jwt-details-grid">
-      <!-- Column 1: Source Token (Keycloak) -->
-      <div class="jwt-column">
-        <div class="jwt-col-header">
-          <div>
-            <span class="badge badge-primary">1. INPUT: Ursprungs-Token (Keycloak IdP)</span>
-            <div class="jwt-col-sub">
-              Ausgestellt für <code>{{ actor.clientId || 'public' }}</code>
-            </div>
-          </div>
+    <div v-if="expanded" class="jwt-grid">
+      <!-- Column 1: Source Token -->
+      <div class="jwt-col">
+        <div class="jwt-col-head">
+          <div class="jwt-col-title">1. Input: Ursprungs-Token (Keycloak)</div>
           <button
             v-if="sourceRaw"
             type="button"
             class="btn btn-sm"
             @click="copyToken(sourceRaw, 'col-src')"
           >
-            {{ copiedKey === 'col-src' ? 'Kopiert' : 'Raw JWT kopieren' }}
+            {{ copiedKey === 'col-src' ? 'Kopiert' : 'Kopieren' }}
           </button>
         </div>
 
         <template v-if="sourcePayload">
-          <div class="claims-box">
-            <div class="kv-row">
-              <span class="kv-label">iss (Issuer):</span>
-              <span class="kv-value">{{ sourcePayload.iss }}</span>
-            </div>
-            <div class="kv-row">
-              <span class="kv-label">azp (Client):</span>
-              <span class="kv-value">{{ sourcePayload.azp }}</span>
-            </div>
-            <div class="kv-row">
-              <span class="kv-label">aud (Audience):</span>
-              <span class="kv-value">{{ JSON.stringify(sourcePayload.aud) }}</span>
-            </div>
-            <div class="kv-row">
-              <span class="kv-label">Rollen:</span>
-              <span class="kv-value role-text">{{ activeRoles.join(', ') || 'keine' }}</span>
-            </div>
+          <div class="claims-list">
+            <div><strong>Issuer (iss):</strong> {{ sourcePayload.iss }}</div>
+            <div><strong>Client (azp):</strong> {{ sourcePayload.azp }}</div>
+            <div><strong>Rollen:</strong> {{ activeRoles.join(', ') || 'keine' }}</div>
           </div>
 
           <input
             type="text"
             readonly
-            class="input-field input-mono raw-token-field"
+            class="input-field input-mono full-width"
             :value="sourceRaw"
-            title="Klicken zum Markieren"
             @focus="($event.target as HTMLInputElement).select()"
           />
 
           <pre class="code-block jwt-pre">{{ JSON.stringify(sourcePayload, null, 2) }}</pre>
         </template>
-        <div v-else class="empty-note">
-          Kein Keycloak-Token für diesen Akteur vorhanden.
-        </div>
+        <div v-else class="empty-msg">Kein Token vorhanden.</div>
       </div>
 
-      <!-- Column 2: Exchanged Token (MX-Port Leo STS) -->
-      <div class="jwt-column sts-column">
-        <div class="jwt-col-header">
-          <div>
-            <span class="badge badge-sts">2. OUTPUT: Getauschtes Ziel-Token (Leo STS)</span>
-            <div class="jwt-col-sub">Transformiert am Ziel-Gateway nach RFC 8693</div>
-          </div>
+      <!-- Column 2: Exchanged Token -->
+      <div class="jwt-col">
+        <div class="jwt-col-head">
+          <div class="jwt-col-title">2. Output: Getauschtes Ziel-Token (STS)</div>
           <button
             v-if="exchangedBundle?.raw"
             type="button"
-            class="btn btn-sm btn-sts"
+            class="btn btn-sm"
             @click="copyToken(exchangedBundle.raw, 'col-sts')"
           >
-            {{ copiedKey === 'col-sts' ? 'Kopiert' : 'Raw STS-JWT kopieren' }}
+            {{ copiedKey === 'col-sts' ? 'Kopiert' : 'Kopieren' }}
           </button>
         </div>
 
         <template v-if="exchangedBundle">
-          <div class="claims-box">
-            <div class="kv-row">
-              <span class="kv-label">iss (Neuer Issuer):</span>
-              <span class="kv-value changed-claim">{{ exchangedBundle.payload?.iss }}</span>
-            </div>
-            <div class="kv-row">
-              <span class="kv-label">aud (Ziel-Service):</span>
-              <span class="kv-value changed-claim">{{ exchangedBundle.payload?.aud }}</span>
-            </div>
-            <div class="kv-row">
-              <span class="kv-label">environment:</span>
-              <span class="kv-value changed-claim">{{ exchangedBundle.payload?.environment }}</span>
-            </div>
-            <div class="kv-row">
-              <span class="kv-label">kid (Signing Key):</span>
-              <span class="kv-value changed-claim">{{ exchangedBundle.header?.kid }}</span>
-            </div>
-            <div class="kv-row">
-              <span class="kv-label">Übernommene Rollen:</span>
-              <span class="kv-value role-text">{{ exchangedRoles.join(', ') || 'keine' }}</span>
-            </div>
+          <div class="claims-list">
+            <div><strong>Neuer Issuer (iss):</strong> {{ exchangedBundle.payload?.iss }}</div>
+            <div><strong>Ziel-Service (aud):</strong> {{ exchangedBundle.payload?.aud }}</div>
+            <div><strong>Umgebung:</strong> {{ exchangedBundle.payload?.environment }}</div>
+            <div><strong>Rollen:</strong> {{ exchangedRoles.join(', ') || 'keine' }}</div>
           </div>
 
           <input
             type="text"
             readonly
-            class="input-field input-mono raw-token-field"
+            class="input-field input-mono full-width"
             :value="exchangedBundle.raw"
-            title="Klicken zum Markieren"
             @focus="($event.target as HTMLInputElement).select()"
           />
 
           <pre class="code-block jwt-pre">{{ JSON.stringify({ header: exchangedBundle.header, payload: exchangedBundle.payload }, null, 2) }}</pre>
         </template>
-        <div v-else class="empty-note">
-          Für diesen Aufruf fand kein STS-Token-Tausch statt (öffentlicher Endpunkt A/B/C oder unauthentifizierter Aufruf).
-        </div>
+        <div v-else class="empty-msg">Kein STS-Tausch für diesen Aufruf.</div>
       </div>
 
-      <!-- Column 3: Manual JWT Decoder -->
-      <div class="jwt-column">
-        <div class="jwt-col-header">
-          <div>
-            <span class="badge">Manueller JWT-Decoder</span>
-            <div class="jwt-col-sub">Beliebiges JWT einfügen, um Header &amp; Payload zu prüfen</div>
-          </div>
+      <!-- Column 3: Custom Decoder -->
+      <div class="jwt-col">
+        <div class="jwt-col-head">
+          <div class="jwt-col-title">Eigenes JWT dekodieren</div>
           <button
             v-if="customJwtInput"
             type="button"
@@ -247,13 +181,13 @@ async function copyToken(text: string | null | undefined, key: string) {
         <input
           v-model="customJwtInput"
           type="text"
-          class="input-field input-mono raw-token-field"
-          placeholder="eyJhbGciOiJSUzI1NiIs... hier einfügen"
+          class="input-field input-mono full-width"
+          placeholder="JWT hier einfügen..."
         />
 
         <pre v-if="customDecodedJwt" class="code-block jwt-pre">{{ JSON.stringify(customDecodedJwt, null, 2) }}</pre>
-        <div v-else class="empty-note">
-          Füge hier ein kopiertes Keycloak- oder STS-Token (z. B. aus Postman) ein, um es direkt zu dekodieren.
+        <div v-else class="empty-msg">
+          Beliebiges JWT einfügen, um Header und Payload zu dekodieren.
         </div>
       </div>
     </div>
@@ -261,117 +195,86 @@ async function copyToken(text: string | null | undefined, key: string) {
 </template>
 
 <style scoped>
-.token-summary-chain {
+.jwt-summary-left {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.jwt-summary-text {
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+}
+
+.jwt-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
 
-.token-node {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.76rem;
-  color: var(--text-primary);
-}
-
-.token-node.muted {
-  color: var(--text-secondary);
-}
-
-.token-node code {
-  font-family: var(--font-mono);
-  color: var(--accent-primary-text);
-}
-
-.chain-arrow {
-  font-family: var(--font-mono);
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-.token-action-group {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-}
-
-.jwt-details-grid {
+.jwt-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-  border-top: 1px solid var(--border-subtle);
-  padding-top: 0.75rem;
+  gap: 1rem;
+  border-top: 1px solid var(--border-default);
+  padding-top: 1rem;
 }
 
-@media (max-width: 1150px) {
-  .jwt-details-grid {
+@media (max-width: 1100px) {
+  .jwt-grid {
     grid-template-columns: 1fr;
   }
 }
 
-.jwt-column {
-  background-color: var(--bg-subtle);
+.jwt-col {
+  background-color: var(--bg-app);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius);
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.75rem;
 }
 
-.jwt-column.sts-column {
-  border-color: var(--accent-sts-border);
-}
-
-.jwt-col-header {
+.jwt-col-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
 }
 
-.jwt-col-sub {
-  font-size: 0.69rem;
-  color: var(--text-secondary);
-  margin-top: 0.2rem;
+.jwt-col-title {
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
-.claims-box {
-  background-color: var(--bg-code);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 0.45rem 0.55rem;
+.claims-list {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  word-break: break-all;
 }
 
-.changed-claim {
-  color: var(--accent-sts-text);
-  font-weight: 600;
+.claims-list strong {
+  color: var(--text-primary);
 }
 
-.role-text {
-  color: var(--status-ok-text);
-  font-weight: 600;
-}
-
-.raw-token-field {
+.full-width {
   width: 100%;
-  font-size: 0.7rem;
 }
 
 .jwt-pre {
-  max-height: 170px;
+  max-height: 220px;
 }
 
-.empty-note {
-  font-size: 0.74rem;
+.empty-msg {
+  font-size: 0.9rem;
   color: var(--text-secondary);
-  padding: 0.5rem 0;
 }
 </style>
-

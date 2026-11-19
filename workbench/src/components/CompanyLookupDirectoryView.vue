@@ -11,19 +11,15 @@ defineProps<{
   <div class="page-container">
     <section class="panel-card">
       <div class="panel-header-row">
-        <div>
-          <div class="panel-eyebrow">
-            Factory-X Discovery Service (http://lookup.localhost/api/v2/companies)
-          </div>
-          <h2 class="panel-title">
-            Registrierte Akteure &amp; Endpunkte im Company Lookup Verzeichnis
-          </h2>
-        </div>
-
-        <div class="cache-stats-row">
-          <span class="badge badge-mono">Lookups im Cache: {{ cacheStats.lookups }}</span>
-          <span class="badge badge-mono">Ressourcen im Cache: {{ cacheStats.resources }}</span>
-        </div>
+        <h2 class="panel-title">Registrierte Akteure im Company Lookup Service</h2>
+        <a
+          href="http://lookup.localhost/api/v2/companies"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="ext-link"
+        >
+          http://lookup.localhost/api/v2/companies
+        </a>
       </div>
     </section>
 
@@ -31,13 +27,27 @@ defineProps<{
       <div v-for="comp in companies" :key="comp.domain" class="panel-card company-card">
         <div class="company-header">
           <span class="company-name">{{ comp.name }}</span>
-          <span class="code-inline">{{ comp.domain }}</span>
+          <a
+            :href="`http://${comp.domain}/shells`"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="ext-link"
+          >
+            {{ comp.domain }}
+          </a>
         </div>
 
         <div class="endpoints-list">
           <div v-for="(ep, idx) in comp.endpoints" :key="idx" class="endpoint-item">
-            <span class="badge badge-primary badge-mono">{{ ep.interface }}</span>
-            <code class="endpoint-href">{{ ep.protocolInformation.href }}</code>
+            <span class="endpoint-iface">{{ ep.interface }}</span>
+            <a
+              :href="ep.protocolInformation.href"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="ext-link"
+            >
+              {{ ep.protocolInformation.href }}
+            </a>
           </div>
         </div>
       </div>
@@ -46,16 +56,10 @@ defineProps<{
 </template>
 
 <style scoped>
-.cache-stats-row {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
 .directory-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.85rem;
+  gap: 1rem;
 }
 
 @media (max-width: 950px) {
@@ -65,42 +69,41 @@ defineProps<{
 }
 
 .company-card {
-  gap: 0.55rem;
+  gap: 0.85rem;
 }
 
 .company-header {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .company-name {
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 
 .endpoints-list {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.5rem;
 }
 
 .endpoint-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 0.4rem 0.6rem;
+  gap: 0.75rem;
+  background-color: var(--bg-app);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.8rem;
 }
 
-.endpoint-href {
+.endpoint-iface {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--text-primary);
+  font-size: 0.84rem;
+  color: var(--text-secondary);
 }
 </style>
-

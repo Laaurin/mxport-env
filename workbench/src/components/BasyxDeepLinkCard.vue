@@ -20,43 +20,32 @@ async function copyUrl(url: string) {
       copied.value = false;
     }, 1800);
   } catch {
-    // Ignore clipboard error
+    // Ignore
   }
 }
 </script>
 
 <template>
-  <section class="panel-card viewer-card">
-    <div class="viewer-card-top">
-      <div class="viewer-info">
-        <div class="panel-eyebrow">
-          Offizielle Eclipse BaSyx AAS Web UI — Instanz: {{ actor.viewerHost }}
-        </div>
-        <div class="viewer-title-line">
-          <h2 class="panel-title">
-            <template v-if="result?.lookupStep.success">
-              Aufgelöste Ziel-Shell bei {{ result.lookupStep.company?.name }} im BaSyx Viewer öffnen
-            </template>
-            <template v-else>
-              BaSyx AAS Viewer ({{ actor.viewerHost }})
-            </template>
-          </h2>
-          <span
-            v-if="result"
-            class="badge badge-mono"
-            :class="result.status >= 200 && result.status < 300 ? 'badge-ok' : 'badge-err'"
+  <section class="panel-card">
+    <div class="viewer-row">
+      <div class="viewer-main">
+        <h2 class="panel-title">BaSyx AAS Viewer Deep-Link ({{ actor.viewerHost }})</h2>
+        <div class="deeplink-line">
+          <a
+            :href="basyxGuiUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="ext-link"
           >
-            HTTP {{ result.status }} {{ result.statusText }}
-          </span>
+            {{ basyxGuiUrl }}
+          </a>
         </div>
-        <p class="viewer-note">
-          Die Authentifizierung erfolgt beim Öffnen des Links im neuen Tab automatisch über das
-          OpenResty-Gateway anhand von <span class="code-inline">Origin: http://{{ actor.viewerHost }}</span>
-          (Keycloak Token-Bezug + RFC 8693 STS Token-Exchange).
-        </p>
       </div>
 
-      <div class="viewer-actions">
+      <div class="viewer-buttons">
+        <button type="button" class="btn btn-sm" @click="copyUrl(basyxGuiUrl)">
+          {{ copied ? 'Link kopiert' : 'Link kopieren' }}
+        </button>
         <a
           :href="basyxGuiUrl"
           target="_blank"
@@ -65,115 +54,57 @@ async function copyUrl(url: string) {
         >
           Im BaSyx Viewer öffnen (Neuer Tab)
         </a>
-        <a
-          :href="baseViewerUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="btn"
-          title="Öffnet den BaSyx Viewer auf dem eigenen lokalen Repository ohne ?aas= Parameter"
-        >
-          Eigenes Repo ({{ actor.viewerHost }})
-        </a>
       </div>
-    </div>
-
-    <div class="deeplink-row">
-      <span class="deeplink-label">Deep-Link URL:</span>
-      <code class="deeplink-url">{{ basyxGuiUrl }}</code>
-      <button type="button" class="btn btn-sm" @click="copyUrl(basyxGuiUrl)">
-        {{ copied ? 'Link kopiert' : 'Link kopieren' }}
-      </button>
     </div>
 
     <div
       v-if="result && (result.status === 401 || result.status === 403)"
-      class="rbac-alert"
+      class="denial-note"
     >
-      <strong>Zugriff durch Gateway / BaSyx Security Submodel abgewiesen (HTTP {{ result.status }}):</strong>
-      Die Ressource <span class="code-inline">{{ result.targetUrn }}</span> auf
-      <span class="code-inline">{{ result.lookupStep.resolvedHost }}</span> ist für
-      <strong>{{ actor.name }}</strong> (Rollen:
-      <span class="code-inline">{{ activeRoles.join(', ') || 'keine' }}</span>) gesperrt.
-      Beim Öffnen des Deep-Links wird die übergeordnete Shell geladen; öffentliche Teilmodelle
-      (z. B. <span class="code-inline">Nameplate</span>) sind einsehbar, während geschützte Teilmodelle als
-      <em>"Submodel Not Authorized!"</em> abgewiesen werden.
+      Hinweis: Der direkte Abruf von <code>{{ result.targetUrn }}</code> wurde für
+      <strong>{{ actor.name }}</strong> mit <strong>HTTP {{ result.status }}</strong> abgewiesen.
+      Im BaSyx Viewer sind daher nur öffentlich freigegebene Teilmodelle (wie <code>Nameplate</code>)
+      sichtbar, während geschützte Teilmodelle gesperrt bleiben.
     </div>
   </section>
 </template>
 
 <style scoped>
-.viewer-card {
-  border-left: 3px solid var(--accent-primary);
-}
-
-.viewer-card-top {
+.viewer-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.5rem;
   flex-wrap: wrap;
 }
 
-.viewer-info {
+.viewer-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
   flex: 1;
-  min-width: 280px;
 }
 
-.viewer-title-line {
+.deeplink-line {
+  word-break: break-all;
+}
+
+.viewer-buttons {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin-top: 0.2rem;
+  gap: 0.65rem;
   flex-wrap: wrap;
 }
 
-.viewer-note {
-  font-size: 0.76rem;
+.denial-note {
+  border-top: 1px solid var(--border-default);
+  padding-top: 0.85rem;
+  font-size: 0.92rem;
   color: var(--text-secondary);
-  margin: 0.35rem 0 0 0;
 }
 
-.viewer-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.deeplink-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  background-color: var(--bg-code);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 0.42rem 0.65rem;
-}
-
-.deeplink-label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.deeplink-url {
-  flex: 1;
-  font-family: var(--font-mono);
-  font-size: 0.73rem;
-  color: var(--accent-primary-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rbac-alert {
-  background-color: var(--status-err-bg);
-  border: 1px solid var(--status-err-border);
-  color: var(--status-err-text);
-  border-radius: var(--radius-sm);
-  padding: 0.55rem 0.75rem;
-  font-size: 0.75rem;
+.denial-note strong {
+  color: var(--text-primary);
 }
 </style>
-

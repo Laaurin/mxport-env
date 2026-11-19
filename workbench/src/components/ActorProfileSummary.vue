@@ -16,54 +16,40 @@ const displayedRoles = computed<string[]>(() => {
 </script>
 
 <template>
-  <section class="panel-card profile-summary-card">
-    <div class="profile-summary-grid">
-      <!-- Left: Actor Identity & Description -->
-      <div class="summary-main">
-        <div class="summary-title-row">
-          <span class="actor-short-box" :class="actor.hasAuth ? 'auth' : 'public'">
-            {{ actor.shortCode }}
-          </span>
-          <div>
-            <div class="panel-eyebrow">Aktives Akteur-Profil</div>
-            <h1 class="actor-heading">{{ actor.name }} — {{ actor.role }}</h1>
-          </div>
-        </div>
-        <p class="actor-description">{{ actor.description }}</p>
+  <section class="panel-card">
+    <div class="profile-grid">
+      <div class="profile-main">
+        <h1 class="actor-title">{{ actor.name }} — {{ actor.role }}</h1>
+        <p class="actor-desc">{{ actor.description }}</p>
       </div>
 
-      <!-- Right: Roles & Technical Endpoints -->
-      <div class="summary-meta-grid">
-        <div class="meta-box">
-          <span class="meta-label">Authentifizierung &amp; IdP</span>
-          <div class="meta-val">
-            <template v-if="actor.hasAuth">
-              <span class="badge badge-primary badge-mono">Keycloak Realm: {{ actor.realm }}</span>
-              <span class="code-inline">{{ actor.clientId }}</span>
-            </template>
-            <template v-else>
-              <span class="badge">Öffentlicher Akteur (Kein Token nötig)</span>
-            </template>
+      <div class="profile-details">
+        <div class="detail-block">
+          <div class="detail-label">Rollen im Datenraum</div>
+          <div class="detail-value mono">
+            {{ displayedRoles.length > 0 ? displayedRoles.join(', ') : 'Öffentlich (keine Rollen)' }}
           </div>
         </div>
 
-        <div class="meta-box">
-          <span class="meta-label">Zugewiesene Rollen (Claims)</span>
-          <div class="meta-val roles-list">
-            <template v-if="displayedRoles.length > 0">
-              <span v-for="role in displayedRoles" :key="role" class="badge badge-ok badge-mono">
-                {{ role }}
-              </span>
-            </template>
-            <span v-else class="badge badge-mono">keine (public access)</span>
-          </div>
-        </div>
-
-        <div class="meta-box">
-          <span class="meta-label">Eigene Endpunkte im Cluster</span>
-          <div class="meta-val">
-            <span class="code-inline" title="Eigenes AAS Gateway">http://{{ actor.gatewayHost }}</span>
-            <span class="code-inline" title="Eigener BaSyx AAS Viewer">http://{{ actor.viewerHost }}</span>
+        <div class="detail-block">
+          <div class="detail-label">Eigene Cluster-Endpunkte</div>
+          <div class="endpoint-links">
+            <a
+              :href="`http://${actor.gatewayHost}/shells`"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="ext-link"
+            >
+              http://{{ actor.gatewayHost }}/shells
+            </a>
+            <a
+              :href="`http://${actor.viewerHost}/aasviewer`"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="ext-link"
+            >
+              http://{{ actor.viewerHost }}
+            </a>
           </div>
         </div>
       </div>
@@ -72,108 +58,74 @@ const displayedRoles = computed<string[]>(() => {
 </template>
 
 <style scoped>
-.profile-summary-card {
-  padding: 0.8rem 1.1rem;
-  background-color: var(--bg-surface);
-}
-
-.profile-summary-grid {
+.profile-grid {
   display: grid;
-  grid-template-columns: 1.2fr 1.5fr;
-  gap: 1.25rem;
-  align-items: center;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 2rem;
+  align-items: start;
 }
 
-@media (max-width: 1100px) {
-  .profile-summary-grid {
+@media (max-width: 1000px) {
+  .profile-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
 }
 
-.summary-main {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.summary-title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-}
-
-.actor-short-box {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.actor-title {
+  font-size: 1.35rem;
   font-weight: 700;
-  font-size: 0.95rem;
-  flex-shrink: 0;
-}
-
-.actor-short-box.auth {
-  background-color: var(--status-ok-bg);
-  color: var(--status-ok-text);
-  border: 1px solid var(--status-ok-border);
-}
-
-.actor-short-box.public {
-  background-color: var(--accent-primary-bg);
-  color: var(--accent-primary-text);
-  border: 1px solid var(--accent-primary-border);
-}
-
-.actor-heading {
-  font-size: 0.96rem;
-  font-weight: 600;
   color: var(--text-primary);
-  margin: 0.1rem 0 0 0;
+  margin: 0 0 0.35rem 0;
 }
 
-.actor-description {
-  font-size: 0.78rem;
+.actor-desc {
+  font-size: 0.96rem;
   color: var(--text-secondary);
   margin: 0;
 }
 
-.summary-meta-grid {
+.profile-details {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.65rem;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 1.25rem;
+  border-left: 1px solid var(--border-default);
+  padding-left: 1.5rem;
 }
 
-@media (max-width: 850px) {
-  .summary-meta-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 1000px) {
+  .profile-details {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid var(--border-default);
+    padding-top: 1rem;
   }
 }
 
-.meta-box {
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.65rem;
+.detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.detail-label {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.detail-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.detail-value.mono {
+  font-family: var(--font-mono);
+}
+
+.endpoint-links {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
 }
-
-.meta-label {
-  font-size: 0.68rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-secondary);
-}
-
-.meta-val {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
 </style>
-

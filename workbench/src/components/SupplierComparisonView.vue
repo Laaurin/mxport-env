@@ -16,12 +16,9 @@ const emit = defineEmits<{
   <div class="page-container">
     <section class="panel-card">
       <div class="panel-header-row">
-        <div>
-          <div class="panel-eyebrow">Actor D — Engineering &amp; Komponentenauswahl</div>
-          <h2 class="panel-title">
-            Öffentlicher Lieferantenvergleich (Akteure A, B und C via Company Lookup)
-          </h2>
-        </div>
+        <h2 class="panel-title">
+          Öffentlicher Lieferantenvergleich (Akteure A, B und C via Company Lookup)
+        </h2>
 
         <button
           type="button"
@@ -29,56 +26,52 @@ const emit = defineEmits<{
           :disabled="loading"
           @click="emit('refresh')"
         >
-          {{ loading ? 'Lade Daten...' : 'Frisch von Ursprungs-Repositories laden' }}
+          {{ loading ? 'Lädt...' : 'Frisch von Ursprungs-Repositories laden' }}
         </button>
       </div>
     </section>
 
     <div v-if="loading" class="panel-card empty-state">
-      Löse Akteure A, B und C über Company Lookup auf und lade Nameplate sowie TechnicalData...
+      Löse Akteure A, B und C über Company Lookup auf...
     </div>
 
     <div v-else class="supplier-grid">
       <div v-for="entry in entries" :key="entry.targetUrn" class="panel-card supplier-card">
-        <div class="supplier-card-header">
-          <strong>{{ entry.supplierLabel }}</strong>
-          <span
-            class="badge badge-mono"
-            :class="entry.fromCache ? 'badge-cache' : 'badge-ok'"
-          >
-            {{ entry.fromCache ? 'Cache' : `HTTP ${entry.status}` }}
-          </span>
-        </div>
+        <h3 class="supplier-title">{{ entry.supplierLabel }}</h3>
 
         <div class="sub-section">
-          <div class="sub-title">1. Company Lookup (INPUT -> OUTPUT)</div>
-          <div class="kv-row">
-            <span class="kv-label">INPUT Asset-URN:</span>
-            <span class="kv-value">{{ entry.targetUrn }}</span>
+          <div class="sub-title">Company Lookup</div>
+          <div class="item-line">
+            <span>Asset-URN:</span>
+            <code>{{ entry.targetUrn }}</code>
           </div>
-          <div class="kv-row">
-            <span class="kv-label">OUTPUT Anbieter:</span>
-            <span class="kv-value">{{ entry.lookup.company?.name }}</span>
-          </div>
-          <div class="kv-row">
-            <span class="kv-label">OUTPUT AAS-Repo:</span>
-            <span class="kv-value">{{ entry.lookup.aasRepositoryUrl }}</span>
+          <div class="item-line">
+            <span>AAS-Repository:</span>
+            <a
+              v-if="entry.lookup.aasRepositoryUrl"
+              :href="entry.lookup.aasRepositoryUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="ext-link"
+            >
+              {{ entry.lookup.aasRepositoryUrl }}
+            </a>
           </div>
         </div>
 
         <div class="sub-section">
-          <div class="sub-title">2. Digital Nameplate</div>
-          <div v-for="(val, key) in entry.nameplate" :key="key" class="kv-row">
-            <span class="kv-label">{{ key }}:</span>
-            <span class="kv-value">{{ val }}</span>
+          <div class="sub-title">Digital Nameplate</div>
+          <div v-for="(val, key) in entry.nameplate" :key="key" class="item-line">
+            <span>{{ key }}:</span>
+            <strong>{{ val }}</strong>
           </div>
         </div>
 
-        <div class="sub-section highlight-section">
-          <div class="sub-title">3. TechnicalData (Vergleichswerte)</div>
-          <div v-for="(val, key) in entry.technicalData" :key="key" class="kv-row">
-            <span class="kv-label">{{ key }}:</span>
-            <span class="kv-value tech-val">{{ val }}</span>
+        <div class="sub-section">
+          <div class="sub-title">TechnicalData</div>
+          <div v-for="(val, key) in entry.technicalData" :key="key" class="item-line">
+            <span>{{ key }}:</span>
+            <strong>{{ val }}</strong>
           </div>
         </div>
 
@@ -87,7 +80,7 @@ const emit = defineEmits<{
           class="btn btn-primary full-btn"
           @click="emit('inspect-urn', entry.targetUrn)"
         >
-          Ablauf &amp; BaSyx Deep-Link öffnen
+          In Übersicht auswählen
         </button>
       </div>
     </div>
@@ -104,7 +97,7 @@ const emit = defineEmits<{
 .supplier-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.85rem;
+  gap: 1.25rem;
 }
 
 @media (max-width: 1100px) {
@@ -114,42 +107,48 @@ const emit = defineEmits<{
 }
 
 .supplier-card {
-  gap: 0.65rem;
+  gap: 1rem;
 }
 
-.supplier-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.88rem;
+.supplier-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
 }
 
 .sub-section {
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.65rem;
+  background-color: var(--bg-app);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  padding: 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.22rem;
-}
-
-.highlight-section {
-  border-color: var(--status-ok-border);
+  gap: 0.4rem;
 }
 
 .sub-title {
-  font-size: 0.68rem;
+  font-size: 0.82rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-secondary);
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.2rem;
 }
 
-.tech-val {
-  color: var(--status-ok-text);
-  font-weight: 600;
+.item-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+}
+
+.item-line strong,
+.item-line code {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  text-align: right;
+  word-break: break-all;
 }
 
 .full-btn {
@@ -157,4 +156,3 @@ const emit = defineEmits<{
   margin-top: auto;
 }
 </style>
-

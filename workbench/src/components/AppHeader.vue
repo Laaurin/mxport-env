@@ -43,8 +43,7 @@ onBeforeUnmount(() => {
 <template>
   <header class="app-header">
     <div class="header-left">
-      <span class="brand-tag">Factory-X</span>
-      <span class="header-title">Dataspace Inspector</span>
+      <span class="header-title">Dataspace Workbench</span>
 
       <nav class="header-nav">
         <button
@@ -53,7 +52,7 @@ onBeforeUnmount(() => {
           :class="{ active: activeView === 'overview' }"
           @click="emit('change-view', 'overview')"
         >
-          Ablauf, Token &amp; Viewer-Link
+          Übersicht
         </button>
         <button
           type="button"
@@ -74,30 +73,19 @@ onBeforeUnmount(() => {
       </nav>
     </div>
 
-    <!-- Top-Right Account Switcher (Actors A-F) -->
     <div ref="menuRef" class="profile-switcher">
       <button
         type="button"
         class="profile-trigger"
-        :class="{ open: showMenu }"
         @click="showMenu = !showMenu"
       >
-        <span class="actor-badge" :class="currentActor.hasAuth ? 'auth' : 'public'">
-          {{ currentActor.shortCode }}
-        </span>
-        <div class="profile-text">
-          <span class="profile-name">{{ currentActor.name }}</span>
-          <span class="profile-role">{{ currentActor.role }}</span>
-        </div>
-        <span v-if="activeRoles.length > 0" class="badge badge-ok badge-mono">
-          {{ activeRoles.join(', ') }}
-        </span>
-        <span v-else class="badge badge-mono">public</span>
-        <span class="caret-label">Wechseln</span>
+        <span class="profile-name">{{ currentActor.name }}</span>
+        <span class="profile-sep">—</span>
+        <span class="profile-role">{{ currentActor.role }}</span>
+        <span class="profile-action">Account wechseln</span>
       </button>
 
       <div v-if="showMenu" class="profile-dropdown">
-        <div class="dropdown-header">Akteur / Account wechseln (A–F)</div>
         <button
           v-for="actor in actors"
           :key="actor.id"
@@ -106,20 +94,9 @@ onBeforeUnmount(() => {
           :class="{ selected: actor.id === currentActor.id }"
           @click="handleSelectActor(actor.id)"
         >
-          <span class="actor-badge" :class="actor.hasAuth ? 'auth' : 'public'">
-            {{ actor.shortCode }}
-          </span>
-          <div class="dropdown-item-body">
-            <div class="dropdown-item-top">
-              <span class="dropdown-item-name">{{ actor.name }}</span>
-              <span class="badge badge-mono" :class="actor.hasAuth ? 'badge-ok' : ''">
-                {{ actor.hasAuth ? `Keycloak (${actor.realm})` : 'Public' }}
-              </span>
-            </div>
-            <div class="dropdown-item-role">{{ actor.role }}</div>
-            <div v-if="actor.configuredRoles.length > 0" class="dropdown-item-roles">
-              Rollen: {{ actor.configuredRoles.join(', ') }}
-            </div>
+          <div class="dropdown-item-name">{{ actor.name }} — {{ actor.role }}</div>
+          <div class="dropdown-item-roles">
+            Rollen: {{ actor.configuredRoles.length ? actor.configuredRoles.join(', ') : 'Öffentlich (keine Rollen)' }}
           </div>
         </button>
       </div>
@@ -129,39 +106,26 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .app-header {
-  height: 52px;
+  height: 60px;
   flex-shrink: 0;
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1.25rem;
-  gap: 1rem;
+  padding: 0 2rem;
+  gap: 1.5rem;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  min-width: 0;
-}
-
-.brand-tag {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--accent-primary-text);
-  background-color: var(--accent-primary-bg);
-  border: 1px solid var(--accent-primary-border);
-  padding: 0.16rem 0.5rem;
-  border-radius: var(--radius-sm);
+  gap: 1.5rem;
 }
 
 .header-title {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 1.05rem;
+  font-weight: 700;
   color: var(--text-primary);
   white-space: nowrap;
 }
@@ -169,8 +133,7 @@ onBeforeUnmount(() => {
 .header-nav {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  margin-left: 0.5rem;
+  gap: 0.4rem;
 }
 
 .nav-tab {
@@ -178,12 +141,11 @@ onBeforeUnmount(() => {
   border: 1px solid transparent;
   color: var(--text-secondary);
   font-family: var(--font-sans);
-  font-size: 0.78rem;
+  font-size: 0.92rem;
   font-weight: 500;
-  padding: 0.32rem 0.7rem;
-  border-radius: var(--radius-sm);
+  padding: 0.42rem 0.85rem;
+  border-radius: var(--radius);
   cursor: pointer;
-  transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .nav-tab:hover {
@@ -192,9 +154,9 @@ onBeforeUnmount(() => {
 }
 
 .nav-tab.active {
-  color: var(--accent-primary-text);
-  background-color: var(--accent-primary-bg);
-  border-color: var(--accent-primary-border);
+  color: var(--text-primary);
+  background-color: var(--bg-elevated);
+  border-color: var(--border-strong);
 }
 
 .profile-switcher {
@@ -204,107 +166,69 @@ onBeforeUnmount(() => {
 .profile-trigger {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.55rem;
   background-color: var(--bg-elevated);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  padding: 0.28rem 0.65rem 0.28rem 0.4rem;
+  border-radius: var(--radius);
+  padding: 0.48rem 0.9rem;
   color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
   cursor: pointer;
 }
 
-.profile-trigger:hover,
-.profile-trigger.open {
-  border-color: var(--accent-primary);
-}
-
-.actor-badge {
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.78rem;
-  flex-shrink: 0;
-}
-
-.actor-badge.auth {
-  background-color: var(--status-ok-bg);
-  color: var(--status-ok-text);
-  border: 1px solid var(--status-ok-border);
-}
-
-.actor-badge.public {
-  background-color: var(--accent-primary-bg);
-  color: var(--accent-primary-text);
-  border: 1px solid var(--accent-primary-border);
-}
-
-.profile-text {
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-  line-height: 1.15;
+.profile-trigger:hover {
+  border-color: var(--border-strong);
 }
 
 .profile-name {
-  font-size: 0.78rem;
   font-weight: 600;
-  color: var(--text-primary);
+}
+
+.profile-sep {
+  color: var(--text-muted);
 }
 
 .profile-role {
-  font-size: 0.68rem;
   color: var(--text-secondary);
 }
 
-.caret-label {
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  padding-left: 0.2rem;
+.profile-action {
+  margin-left: 0.5rem;
+  padding-left: 0.65rem;
   border-left: 1px solid var(--border-default);
+  font-size: 0.84rem;
+  color: var(--text-secondary);
 }
 
 .profile-dropdown {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  width: 360px;
+  width: 380px;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-popover);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
   z-index: 1000;
-  padding: 0.45rem;
+  padding: 0.4rem;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
 
-.dropdown-header {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  padding: 0.35rem 0.5rem;
-  border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: 0.15rem;
-}
-
 .dropdown-item {
   display: flex;
-  align-items: flex-start;
-  gap: 0.65rem;
-  padding: 0.5rem 0.55rem;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.65rem 0.8rem;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   text-align: left;
   cursor: pointer;
   color: var(--text-primary);
+  font-family: var(--font-sans);
 }
 
 .dropdown-item:hover {
@@ -312,38 +236,18 @@ onBeforeUnmount(() => {
 }
 
 .dropdown-item.selected {
-  background-color: var(--accent-primary-bg);
-  border-color: var(--accent-primary-border);
-}
-
-.dropdown-item-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.dropdown-item-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.4rem;
+  background-color: var(--bg-elevated);
+  border-color: var(--border-strong);
 }
 
 .dropdown-item-name {
-  font-size: 0.8rem;
+  font-size: 0.92rem;
   font-weight: 600;
 }
 
-.dropdown-item-role {
-  font-size: 0.72rem;
-  color: var(--text-secondary);
-  margin-top: 0.12rem;
-}
-
 .dropdown-item-roles {
-  font-size: 0.68rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
   font-family: var(--font-mono);
-  color: var(--status-ok-text);
-  margin-top: 0.2rem;
 }
 </style>
-
