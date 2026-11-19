@@ -1,75 +1,128 @@
-# 6-Akteure Datenraum in k3d (Kubernetes) — Dokumentation & Betriebshandbuch
+# 6-Akteure Datenraum in k3d (Kubernetes) — Komplettanleitung (Windows & macOS/Linux)
 
-Dieses Verzeichnis enthält die Kubernetes-Implementierung (`k3d` + `Helm`) des **6-Akteure Datenraums** mit dynamischem Discovery über den **Factory-X Company Lookup Service**, **RFC 8693 Token-Exchange (MX-Port Leo STS)**, **Eclipse BaSyx AAS V3.0 Repositories & Security Submodels** sowie den offiziellen **BaSyx AAS Web UIs**.
+Dieses Dokument enthält alle Befehle zum **Aufbauen**, **Starten**, **Aktualisieren (`deploy-all`)** und **Testen** des 6-Akteure-Datenraums – sowohl über die mitgelieferten Skripte als auch als direkte Copy-Paste-Blöcke für PowerShell und Bash.
 
 ---
 
-## 1. Schnellhilfe: Cluster starten, stoppen & neu aufbauen
+## 1. Schnellübersicht: Alle wichtigen Skripte
 
-### Fall A: Docker / PC wurde neu gestartet (alle Container sind gestoppt)
-Wenn der `k3d`-Cluster `dataspace` bereits angelegt wurde, nach einem Neustart von Docker Desktop oder des PCs aber alle Container heruntergefahren sind (oder `Error: Kubernetes cluster unreachable` erscheint):
-
+Falls unter Windows PowerShell das Ausführen von `.ps1`-Skripten durch die ExecutionPolicy blockiert wird, führe einmalig im aktuellen PowerShell-Fenster diesen Befehl aus:
 ```powershell
-# 1. Gestoppte k3d-Container wieder starten
-k3d cluster start dataspace
-
-# 2. Kubeconfig-Port und Context aktualisieren
-k3d kubeconfig merge dataspace --kubeconfig-switch-context
-
-# 3. Prüfen, ob die Pods wieder anlaufen (dauert nach dem Start ca. 30-60 Sekunden)
-kubectl get pods -n dataspace
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
+| Aufgabe | Windows (PowerShell) | macOS / Linux (Bash) |
+|---|---|---|
+| **1. Externe Repos (`repos/`) klonen** | `.\setup.ps1` | `./setup.sh` |
+| **2. Cluster erstellen/starten + Images + `deploy-all`** | `.\k8s\scripts\cluster-up.ps1` | `./k8s/scripts/cluster-up.sh` |
+| **3. Nur Helm-Charts aktualisieren (laufendes Cluster)** | `.\k8s\scripts\deploy-all.ps1` | `./k8s/scripts/deploy-all.sh` |
+| **4. E2E-Tests (31/48 Checks) ausführen** | `.\k8s\tests\verify_6actor_chain.ps1` | `./k8s/tests/verify_6actor_chain.sh` |
+| **5. Vue Workbench starten (`http://localhost:5173`)** | `.\k8s\scripts\workbench.ps1` | `./k8s/scripts/workbench.sh` |
+| **6. Cluster komplett löschen** | `.\k8s\scripts\cluster-down.ps1` | `./k8s/scripts/cluster-down.sh` |
+| **7. Windows `hosts`-Datei ergänzen (als Admin)** | `.\k8s\scripts\setup-hosts.ps1` | *(nicht nötig)* |
+
 ---
 
-### Fall B: Cluster existiert nicht (oder soll komplett frisch aufgebaut werden)
+## 2. Typische Betriebs-Szenarien (inkl. Fehlerbehebung)
 
-#### Variante 1: Über die Start-Skripte
+### Szenario A: `no nodes found for given cluster` oder `Kubernetes cluster unreachable`
+Wenn Docker Desktop beendet/neugestartet wurde oder die `k3d`-Container gelöscht wurden:
+
+#### Option 1: Per Skript (`cluster-up` erkennt defekte/leere Cluster jetzt automatisch!)
 * **Windows (PowerShell)**:
   ```powershell
-  # Optional, falls bestehenden Cluster vorher löschen:
-  .\k8s\scripts\cluster-down.ps1
-
-  # Cluster erstellen, Images bauen/importieren & alle Charts ausrollen:
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
   .\k8s\scripts\cluster-up.ps1
   ```
-* **macOS / Linux (Bash)**:
+* **macOS / Linux**:
   ```bash
-  # Optional, falls bestehenden Cluster vorher löschen:
-  ./k8s/scripts/cluster-down.sh
-
-  # Cluster erstellen, Images bauen/importieren & alle Charts ausrollen:
   ./k8s/scripts/cluster-up.sh
   ```
+*(Das Skript prüft automatisch, ob `k3d cluster start dataspace` funktioniert. Falls `no nodes found for given cluster` auftritt, löscht es den verwaisten Eintrag, erstellt das Cluster neu, importiert die lokal vorhandenen Docker-Images und ruft `deploy-all` auf.)*
 
-#### Variante 2: Manuell Schritt für Schritt (ohne `.ps1` / `.sh` Skripte)
-Falls unter Windows die PowerShell `ExecutionPolicy` das Ausführen von `.ps1`-Skripten verhindert, können die Befehle direkt im Projekt-Hauptverzeichnis `mxport-env` ausgeführt werden:
-
+#### Option 2: Manuell per Copy & Paste (ohne Skripte)
 ```powershell
-# 1. Optional: Altes Cluster löschen (falls vorhanden)
+# 1. Verwaisten Cluster-Eintrag löschen und neu erstellen
 k3d cluster delete dataspace
-
-# 2. Neues k3d-Cluster erstellen
 k3d cluster create --config k8s/cluster/k3d-config.yaml
 
-# 3. Lokale Docker-Images bauen (nur nötig, falls noch nicht lokal im Docker-Cache vorhanden)
-docker build -t mxport-leo-gateway:local -f provider/gateway/Dockerfile provider/gateway
-docker build -t mxport-leo-sts:local repos/mxport-leo-token-exchange
-docker build -t mxport-leo-company-lookup:local repos/mxport-leo-company-lookup
-docker pull postgres:16-alpine
-
-# 4. Lokale Images in das k3d-Cluster importieren
+# 2. Lokale Docker-Images in das neue k3d-Cluster importieren
 k3d image import mxport-leo-gateway:local -c dataspace
 k3d image import mxport-leo-sts:local -c dataspace
 k3d image import mxport-leo-company-lookup:local -c dataspace
 k3d image import postgres:16-alpine -c dataspace
 
-# 5. Namespace, Keycloak-Realms & zentrale Infrastruktur (Keycloak, MongoDB, Company Lookup) installieren
+# 3. Alle Helm-Charts über deploy-all ausrollen (oder die Einzelbefehle aus Abschnitt 3 nutzen)
+.\k8s\scripts\deploy-all.ps1
+```
+
+---
+
+### Szenario B: Cluster läuft bereits — nur Änderungen ausrollen (`deploy-all`)
+Wenn das `k3d`-Cluster läuft (`kubectl get nodes` zeigt `Ready`) und du nach einem `git pull` oder nach dem Hinzufügen eigener AAS-Modelle die Kubernetes-Deployments aktualisieren möchtest:
+
+* **Über `deploy-all` (aktualisiert Keycloak-Realms, Infra, Company Lookup & alle 6 Akteure A–F)**:
+  * **Windows (PowerShell)**:
+    ```powershell
+    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+    .\k8s\scripts\deploy-all.ps1
+    ```
+  * **macOS / Linux**:
+    ```bash
+    ./k8s/scripts/deploy-all.sh
+    ```
+* **Oder nur einzelne Akteure per Helm aktualisieren (z. B. Actor D und Actor E)**:
+  ```powershell
+  helm upgrade --install actor-d k8s/helm/dataspace-actor -f k8s/values/actor-d.yaml -n dataspace
+  helm upgrade --install actor-e k8s/helm/dataspace-actor -f k8s/values/actor-e.yaml -n dataspace
+  ```
+
+---
+
+## 3. Kompletter Aufbau von Grund auf (100% Manuell zum Kopieren ohne `.ps1`-Skripte)
+
+Falls du auf einem neuen Gerät komplett ohne Skript-Aufrufe von Null starten möchtest, kopiere die folgenden Blöcke nacheinander im Projekt-Hauptverzeichnis `mxport-env` in dein Terminal:
+
+### Schritt 1: Externe Quell-Repositories (`repos/`) klonen
+*(Nur beim allerersten Mal nötig, falls `repos/` noch leer ist)*
+```powershell
+git config --global core.longpaths true
+mkdir -Force repos
+
+git clone -c core.longpaths=true https://github.com/factory-x-contributions/mxport-leo-token-exchange.git repos/mxport-leo-token-exchange
+git -C repos/mxport-leo-token-exchange checkout 4ad9a6011db4326fee6b518a18f239647ea4069c
+
+git clone -c core.longpaths=true https://github.com/factory-x-contributions/mxport-leo-company-lookup.git repos/mxport-leo-company-lookup
+git -C repos/mxport-leo-company-lookup checkout a9937d1f5d016927722e7de1432a2a7e767646ab
+```
+
+### Schritt 2: Lokale Docker-Images bauen
+*(Nur nötig, falls die Images noch nicht lokal in Docker existieren)*
+```powershell
+docker build -t mxport-leo-gateway:local -f provider/gateway/Dockerfile provider/gateway
+docker build -t mxport-leo-sts:local repos/mxport-leo-token-exchange
+docker build -t mxport-leo-company-lookup:local repos/mxport-leo-company-lookup
+docker pull postgres:16-alpine
+```
+
+### Schritt 3: `k3d`-Cluster erstellen & Images importieren
+```powershell
+k3d cluster delete dataspace
+k3d cluster create --config k8s/cluster/k3d-config.yaml
+
+k3d image import mxport-leo-gateway:local -c dataspace
+k3d image import mxport-leo-sts:local -c dataspace
+k3d image import mxport-leo-company-lookup:local -c dataspace
+k3d image import postgres:16-alpine -c dataspace
+```
+
+### Schritt 4: Alles ausrollen (Entspricht `deploy-all.ps1` / `deploy-all.sh`)
+```powershell
 kubectl create namespace dataspace
-kubectl create configmap keycloak-realms --from-file=k8s/infra/keycloak/realms -n dataspace
+kubectl create configmap keycloak-realms --from-file=k8s/infra/keycloak/realms -n dataspace --dry-run=client -o yaml | kubectl apply -f -
+
 helm upgrade --install infra k8s/helm/dataspace-infra -n dataspace
 
-# 6. Alle 6 Akteure (A bis F) per Helm installieren
 helm upgrade --install actor-a k8s/helm/dataspace-actor -f k8s/values/actor-a.yaml -n dataspace
 helm upgrade --install actor-b k8s/helm/dataspace-actor -f k8s/values/actor-b.yaml -n dataspace
 helm upgrade --install actor-c k8s/helm/dataspace-actor -f k8s/values/actor-c.yaml -n dataspace
@@ -77,70 +130,21 @@ helm upgrade --install actor-d k8s/helm/dataspace-actor -f k8s/values/actor-d.ya
 helm upgrade --install actor-e k8s/helm/dataspace-actor -f k8s/values/actor-e.yaml -n dataspace
 helm upgrade --install actor-f k8s/helm/dataspace-actor -f k8s/values/actor-f.yaml -n dataspace
 
-# 7. Status prüfen
 kubectl get pods -n dataspace
 ```
 
----
-
-### Fall C: Änderungen an Helm-Charts oder Modellen im laufenden Cluster aktualisieren
-Wenn du eine Konfigurationsdatei oder ein eigenes AAS-Modell unter `k8s/helm/dataspace-actor/files/custom-models/` geändert hast:
-
-* **Alle Akteure & Infrastruktur aktualisieren**:
-  * macOS / Linux: `./k8s/scripts/deploy-all.sh`
-  * Windows: `.\k8s\scripts\deploy-all.ps1`
-* **Nur einen einzelnen Akteur aktualisieren (z. B. Actor E)**:
-  ```powershell
-  helm upgrade --install actor-e k8s/helm/dataspace-actor -f k8s/values/actor-e.yaml -n dataspace
-  ```
-
----
-
-## 2. Architektur & Szenario-Überblick
-
-Im Datenraum agieren 6 Akteure entlang einer industriellen Liefer- und Fertigungskette. Kein Akteur hat die Repository-URLs anderer Akteure hartcodiert – die Auflösung erfolgt immer dynamisch anhand der Asset-/Shell-/Submodel-URN über den **Company Lookup Service** (`lookup.localhost`).
-
-```text
-+-----------------+ +-----------------+ +-----------------+
-|    Akteur A     | |    Akteur B     | |    Akteur C     |
-|  (Servo Motor)  | |   (Getriebe)    | |    (Sensor)     |
-|                 | |                 | |                 |
-| Public AAS Repo | | Public AAS Repo | | Public AAS Repo |
-+--------+--------+ +--------+--------+ +--------+--------+
-         |                   |                   |
-         +-------------+-----+-------------------+
-                       | Oeffentlicher Komponentenvergleich via Lookup
-                       v
-            +---------------------+
-            |      Akteur D       |
-            |  (Maschinenbauer)   |
-            |                     |
-            | - MachineTypeAAS    |
-            | - Simulation SM     | <--- Geschuetzt (Keycloak + Leo STS + BaSyx SecSM)
-            +----------+----------+      Nur fuer Kunden mit Rolle 'customer-d' (Akteur E)
-                       |
-                       | Kauf der Maschine & Zugriff auf SimulationModel
-                       v
-            +---------------------+
-            |      Akteur E       |
-            | (Bauteilfertigung)  |
-            |                     |
-            | - Nameplate SM      | <--- Fuer alle authentifizierten Partner sichtbar
-            | - TimeSeries SM     | <--- Geschuetzt (Keycloak + Leo STS + BaSyx SecSM)
-            +----------+----------+      Nur fuer Kunden mit Rolle 'customer-e' (Akteur F)
-                       |
-                       | Kauf des gefertigten Bauteils
-                       v
-            +---------------------+
-            |      Akteur F       |
-            |     (Endkunde)      |
-            |                     |
-            | Zugriff auf         |
-            | TimeSeries SM von E |
-            +---------------------+
+### Schritt 5: Vue Workbench starten (`http://localhost:5173`)
+```powershell
+cd workbench
+npm install
+npm run dev
 ```
 
-### Die 6 Akteure im Detail
+---
+
+## 4. Architektur & Szenario-Überblick
+
+Im Datenraum agieren 6 Akteure entlang einer industriellen Liefer- und Fertigungskette. Kein Akteur hat die Repository-URLs anderer Akteure hartcodiert – die Auflösung erfolgt immer dynamisch anhand der Asset-/Shell-/Submodel-URN über den **Company Lookup Service** (`lookup.localhost`).
 
 | Akteur | Rolle & Kontext | Standard-AAS & Teilmodelle | Zugriffssteuerung & Rollen |
 |---|---|---|---|
@@ -153,7 +157,7 @@ Im Datenraum agieren 6 Akteure entlang einer industriellen Liefer- und Fertigung
 
 ---
 
-## 3. Endpunkte im Cluster (Traefik Ingress auf Port 80)
+## 5. Endpunkte im Cluster (Traefik Ingress auf Port 80)
 
 | Dienst / Akteur | Gateway / API-URL | Offizieller BaSyx AAS Viewer | Lookup Asset-ID Regex |
 |---|---|---|---|
@@ -166,70 +170,18 @@ Im Datenraum agieren 6 Akteure entlang einer industriellen Liefer- und Fertigung
 | **Actor E** | `http://actor-e.localhost/shells` | `http://viewer-e.localhost` | `^urn:dataspace:e:` |
 | **Actor F** | `http://actor-f.localhost/shells` | `http://viewer-f.localhost` | `^urn:dataspace:f:` |
 
-### Hinweis zu `*.localhost` unter Windows
-Browser (Chrome, Edge, Firefox) und der Vite-Proxy der Workbench lösen `*.localhost` automatisch auf `127.0.0.1` auf. Damit auch Windows-CLI-Tools oder die Postman-Desktop-App unter Windows alle `*.localhost`-Domains direkt auflösen, kann einmalig in einer **Administrator-PowerShell** das Skript ausgeführt werden:
-```powershell
-.\k8s\scripts\setup-hosts.ps1
-```
-
 ---
 
-## 4. Eigene AAS-Shells & Submodels einbinden (Git-ignoriert mit Fallback)
-
-Du kannst die bestehenden Demo-Shells auf zwei Wegen durch eigene Modelle ersetzen oder ergänzen:
+## 6. Eigene AAS-Shells & Submodels einbinden (Git-ignoriert mit Fallback)
 
 ### Weg 1: Dauerhaft über Dateien (`k8s/helm/dataspace-actor/files/custom-models/`)
 1. Lege im Ordner `k8s/helm/dataspace-actor/files/custom-models/` eine JSON-Datei mit dem Namen des Akteurs an (z. B. `actor-e.json` oder `actor-a.json`).
-2. Das Format entspricht dem offiziellen IDTA / Eclipse BaSyx V3.0 AAS-Environment-Standard:
-   ```json
-   {
-     "assetAdministrationShells": [ ... ],
-     "submodels": [ ... ],
-     "conceptDescriptions": [ ... ]
-   }
-   ```
+2. Das Format entspricht dem offiziellen IDTA / Eclipse BaSyx V3.0 AAS-Environment-Standard (`{ "assetAdministrationShells": [...], "submodels": [...], "conceptDescriptions": [...] }`).
 3. Alle `*.json`- und `*.aasx`-Dateien in `custom-models/` werden von **Git ignoriert** (`.gitignore`).
-4. Beim Ausführen von `deploy-all` (bzw. `helm upgrade --install actor-e ...`) lädt Helm automatisch deine Datei aus `custom-models/`. Löschst du die Datei wieder aus `custom-models/`, greift automatisch der **Fallback** auf die Standard-Demo-Datei unter `k8s/helm/dataspace-actor/files/models/<actor>.json`.
+4. Beim Ausführen von `deploy-all` lädt Helm automatisch deine Datei aus `custom-models/`. Löschst du die Datei wieder aus `custom-models/`, greift automatisch der **Fallback** auf die Standard-Demo-Datei unter `k8s/helm/dataspace-actor/files/models/<actor>.json`.
 
 ### Weg 2: Zur Laufzeit über die Workbench (`Verwaltung`)
 Oben rechts in der Workbench (`http://localhost:5173`) öffnet der Button **`Verwaltung`** drei Werkzeuge:
-1. **Zugriffsrechte (`Actor D` / `Actor E`)**: Steuert live in der MongoDB des **BaSyx Security Submodels** (`/secsm/submodel-elements`), welche Rolle (`customer-e`, `partner-d`, `customer-d`, `partner-f` usw.) Lesezugriff auf welches Teilmodell hat – inklusive 1-Klick-Reset auf die Standard-Berechtigungen.
+1. **Zugriffsrechte (`Actor D` / `Actor E`)**: Steuert live in der MongoDB des **BaSyx Security Submodels** (`/secsm/submodel-elements`), welche Rolle Lesezugriff auf welches Teilmodell hat – inklusive 1-Klick-Reset auf die Standard-Berechtigungen.
 2. **Shells & Submodels**: Importiert eigene AAS/Submodel-JSONs zur Laufzeit direkt in das `InMemory`-Repository des gewählten Akteurs und erlaubt das gezielte Löschen einzelner Shells und Submodels.
 3. **Akteure verwalten**: Registriert zusätzliche Akteure persistent in der PostgreSQL-Datenbank des Company Lookup Service und erlaubt deren vollständiges Löschen.
-
----
-
-## 5. Vue Workbench & E2E-Tests starten
-
-### 1. Vue Dataspace Workbench starten (`http://localhost:5173`)
-* **macOS / Linux**:
-  ```bash
-  ./k8s/scripts/workbench.sh
-  ```
-* **Windows (PowerShell)**:
-  ```powershell
-  .\k8s\scripts\workbench.ps1
-  ```
-* **Oder direkt manuell**:
-  ```bash
-  cd workbench
-  npm install
-  npm run dev
-  ```
-
-### 2. Automatisierte E2E-Testsuite (CLI)
-Prüft alle 6 Akteure, den Company Lookup, den STS-Token-Tausch sowie alle Positiv- und Negativ-Zugriffstests (`200 OK`, `401 Unauthorized`, `403 Forbidden`):
-* **macOS / Linux**:
-  ```bash
-  ./k8s/tests/verify_6actor_chain.sh
-  ```
-* **Windows (PowerShell)**:
-  ```powershell
-  .\k8s\tests\verify_6actor_chain.ps1
-  ```
-
-### 3. Postman Collection / Newman
-Die vollständige E2E-Collection liegt unter `k8s/postman/6-Actor-Dataspace.postman_collection.json`:
-```bash
-npx newman run k8s/postman/6-Actor-Dataspace.postman_collection.json
-```

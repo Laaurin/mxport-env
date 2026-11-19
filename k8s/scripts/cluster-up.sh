@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # cluster-up.sh
-# Creates the k3d cluster 'dataspace' and deploys all 4 actors + infrastructure
+# Creates or starts the k3d cluster 'dataspace', builds/imports images,
+# and deploys all 6 actors + infrastructure via deploy-all.sh
 # ==============================================================================
 set -euo pipefail
 
@@ -15,16 +16,29 @@ command -v k3d >/dev/null 2>&1 || { echo "ERROR: k3d is not installed. Install v
 command -v helm >/dev/null 2>&1 || { echo "ERROR: helm is not installed. Install via brew install helm or choco install kubernetes-helm"; exit 1; }
 command -v kubectl >/dev/null 2>&1 || { echo "ERROR: kubectl is not installed."; exit 1; }
 
-echo ">>> Checking if k3d cluster '$CLUSTER_NAME' already exists..."
+echo ">>> Checking if k3d cluster '$CLUSTER_NAME' exists and has active nodes..."
+NEEDS_CREATE=true
 if k3d cluster list "$CLUSTER_NAME" >/dev/null 2>&1; then
-  echo ">>> Cluster '$CLUSTER_NAME' already exists."
-else
+  echo ">>> Found cluster '$CLUSTER_NAME'. Starting if stopped..."
+  if k3d cluster start "$CLUSTER_NAME" >/dev/null 2>&1; then
+    k3d kubeconfig merge "$CLUSTER_NAME" --kubeconfig-switch-context >/dev/null 2>&1 || true
+    if kubectl get nodes >/dev/null 2>&1; then
+      echo ">>> Cluster '$CLUSTER_NAME' is running and healthy."
+      NEEDS_CREATE=false
+    fi
+  fi
+  if [ "$NEEDS_CREATE" = true ]; then
+    echo ">>> Cluster '$CLUSTER_NAME' has no nodes ('no nodes found'). Recreating..."
+    k3d cluster delete "$CLUSTER_NAME" >/dev/null 2>&1 || true
+  fi
+fi
+
+if [ "$NEEDS_CREATE" = true ]; then
   echo ">>> Creating k3d cluster '$CLUSTER_NAME'..."
   k3d cluster create --config "$K8S_DIR/cluster/k3d-config.yaml"
 fi
 
-echo ">>> Ensuring custom images are present in cluster..."
-# Build local gateway & STS if not present
+echo ">>> Ensuring custom images are present..."
 if ! docker image inspect mxport-leo-gateway:local >/dev/null 2>&1; then
   echo "  --> Building mxport-leo-gateway:local..."
   docker build -t mxport-leo-gateway:local -f "$ROOT_DIR/provider/gateway/Dockerfile" "$ROOT_DIR/provider/gateway"
@@ -62,5 +76,5 @@ for img in \
   fi
 done
 
-echo ">>> Deploying all charts..."
+echo ">>> Deploying all charts via deploy-all.sh..."
 "$SCRIPT_DIR/deploy-all.sh"
