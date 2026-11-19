@@ -447,6 +447,16 @@ onMounted(() => {
           </div>
         </template>
 
+        <div v-else-if="actor.hasAuth" class="info-box">
+          <strong>Security-Submodel-Endpunkt (/secsm) auf {{ actor.gatewayHost }} noch nicht ausgerollt:</strong>
+          <div class="help-line">
+            Bitte aktualisiere einmal die Helm-Charts für Actor D und Actor E im Cluster, damit die neue
+            <code>/secsm</code>-Gateway-Route aktiv wird:
+          </div>
+          <pre class="code-block" style="margin-top: 0.6rem;">helm upgrade --install actor-d k8s/helm/dataspace-actor -f k8s/values/actor-d.yaml -n dataspace
+helm upgrade --install actor-e k8s/helm/dataspace-actor -f k8s/values/actor-e.yaml -n dataspace</pre>
+        </div>
+
         <div v-else class="info-box">
           <strong>{{ actor.name }}</strong> ist als öffentliches Repository ohne BaSyx Security Submodel
           konfiguriert (alle Shells und Teilmodelle sind öffentlich lesbar). Wechsle oben rechts auf

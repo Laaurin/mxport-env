@@ -1,24 +1,20 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # workbench.sh
-# Starts the interactive Dataspace Test Workbench & Security Inspector UI
+# Starts the Vue Dataspace Workbench UI on http://localhost:5173
 # ==============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 K8S_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-WORKBENCH_DIR="$K8S_DIR/workbench"
+ROOT_DIR="$(cd "$K8S_DIR/.." && pwd)"
+WORKBENCH_DIR="$ROOT_DIR/workbench"
 
-PORT="${PORT:-3333}"
-
-echo ">>> Starting Dataspace Test Workbench on port $PORT..."
-echo ">>> Serving UI at: http://localhost:$PORT"
-
-# Try to open in default browser
-if command -v open >/dev/null 2>&1; then
-  (sleep 1 && open "http://localhost:$PORT") &
-elif command -v xdg-open >/dev/null 2>&1; then
-  (sleep 1 && xdg-open "http://localhost:$PORT") &
+if [ ! -d "$WORKBENCH_DIR/node_modules" ]; then
+  echo ">>> Installing workbench dependencies (npm install)..."
+  (cd "$WORKBENCH_DIR" && npm install)
 fi
 
-exec node "$WORKBENCH_DIR/server.js"
+echo ">>> Starting Vue Dataspace Workbench on http://localhost:5173 ..."
+cd "$WORKBENCH_DIR"
+exec npm run dev

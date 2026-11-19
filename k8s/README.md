@@ -1,173 +1,235 @@
-# 6-Akteure Datenraum-Architektur in k3d (Kubernetes)
+# 6-Akteure Datenraum in k3d (Kubernetes) — Dokumentation & Betriebshandbuch
 
-Dieses Verzeichnis enthält die vollständige Kubernetes-Implementierung eines **6-Akteure Datenraums** für die Masterarbeit.
+Dieses Verzeichnis enthält die Kubernetes-Implementierung (`k3d` + `Helm`) des **6-Akteure Datenraums** mit dynamischem Discovery über den **Factory-X Company Lookup Service**, **RFC 8693 Token-Exchange (MX-Port Leo STS)**, **Eclipse BaSyx AAS V3.0 Repositories & Security Submodels** sowie den offiziellen **BaSyx AAS Web UIs**.
 
 ---
 
-## 1. Architektur & Szenario-Überblick
+## 1. Schnellhilfe: Cluster starten, stoppen & neu aufbauen
 
-Im industriellen Datenraum agieren 6 Akteure entlang einer Fertigungskette (von Komponentenherstellern bis zum Endkunden):
+### Fall A: Docker / PC wurde neu gestartet (alle Container sind gestoppt)
+Wenn der `k3d`-Cluster `dataspace` bereits angelegt wurde, nach einem Neustart von Docker Desktop oder des PCs aber alle Container heruntergefahren sind (oder `Error: Kubernetes cluster unreachable` erscheint):
 
-```text
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│    Akteur A     │ │    Akteur B     │ │    Akteur C     │
-│  (Servo Motor)  │ │   (Getriebe)    │ │    (Sensor)     │
-│                 │ │                 │ │                 │
-│ Public AAS Repo │ │ Public AAS Repo │ │ Public AAS Repo │
-└────────┬────────┘ └────────┬────────┘ └────────┬────────┘
-         │                   │                   │
-         └─────────────┬─────┴───────────────────┘
-                       │ Öffentlicher Datenvergleich
-                       ▼
-            ┌─────────────────────┐
-            │      Akteur D       │
-            │  (Maschinenbauer)   │
-            │                     │
-            │ - MachineTypeAAS    │
-            │ - Simulation SM 🔒  │ ◄─── Nur autorisierte Kunden (Keycloak + SecSM)
-            └──────────┬──────────┘
-                       │ Kauf von Maschine & Zugriff auf Simulation
-                       ▼
-            ┌─────────────────────┐
-            │      Akteur E       │
-            │ (Bauteilfertigung)  │
-            │                     │
-            │ - Nameplate SM 🌐   │ ◄─── Für alle im Datenraum lesbar
-            │ - TimeSeries SM 🔒  │ ◄─── Nur für Endkunden (Keycloak + SecSM)
-            └──────────┬──────────┘
-                       │ Kauf des hergestellten Bauteils
-                       ▼
-            ┌─────────────────────┐
-            │      Akteur F       │
-            │     (Endkunde)      │
-            │                     │
-            │ Zugriff auf         │
-            │ TimeSeries SM       │
-            └─────────────────────┘
+```powershell
+# 1. Gestoppte k3d-Container wieder starten
+k3d cluster start dataspace
+
+# 2. Kubeconfig-Port und Context aktualisieren
+k3d kubeconfig merge dataspace --kubeconfig-switch-context
+
+# 3. Prüfen, ob die Pods wieder anlaufen (dauert nach dem Start ca. 30-60 Sekunden)
+kubectl get pods -n dataspace
 ```
 
 ---
 
-## 2. Die Akteure im Detail
+### Fall B: Cluster existiert nicht (oder soll komplett frisch aufgebaut werden)
 
-| Akteur | Rolle & Industrieller Kontext | Bereitgestellte AAS & Teilmodelle | Schutz & Autorisierung |
-|---|---|---|---|
-| **Akteur A** | Zulieferer für Servomotoren | `ServoMotorAAS` (`urn:dataspace:a:aas:servo-motor-001`)<br>• `Nameplate`<br>• `TechnicalData` (15 kW, IE4) | **100% Öffentlich**<br>(Ohne Auth/Token erreichbar) |
-| **Akteur B** | Zulieferer für Industriegetriebe | `IndustrialGearboxAAS` (`urn:dataspace:b:aas:gearbox-001`)<br>• `Nameplate`<br>• `TechnicalData` (10:1 Untersetzung, 450 Nm) | **100% Öffentlich**<br>(Ohne Auth/Token erreichbar) |
-| **Akteur C** | Zulieferer für Vibrationssensoren | `VibrationSensorAAS` (`urn:dataspace:c:aas:sensor-001`)<br>• `Nameplate`<br>• `TechnicalData` (25.6 kHz, IO-Link) | **100% Öffentlich**<br>(Ohne Auth/Token erreichbar) |
-| **Akteur D** | CNC-Maschinenhersteller | `MillingMachineTypeAAS` (`urn:dataspace:d:aas:machine-type-001`)<br>• `Nameplate`<br>• `TechnicalData` (integriert A, B, C)<br>• `SimulationModel` (Kinematik & Thermo-FEA) | **Geschützt (Keycloak + SecSM)**<br>Zugriff auf Simulation SM nur für Kunden (Akteur E mit Rolle `customer-d`) |
-| **Akteur E** | Präzisions-Fertiger (Turbinenschaufeln) | `TurbineBladeProductAAS` (`urn:dataspace:e:aas:produced-part-001`)<br>• `Nameplate` (Hersteller, Maschine D)<br>• `TimeSeries` (Prozessdaten: Frästemperatur, Vibration) | **Geschützt (Keycloak + SecSM)**<br>• **Nameplate**: Für alle Partner sichtbar<br>• **TimeSeries**: Strikt nur für Kunde F (`customer-e`) |
-| **Akteur F** | Endkunde (Triebwerksbauer) | Fragt Bauteildaten von E ab für Qualitäts- & Abnahmezwecke | **Client mit Keycloak-Identität**<br>Erhält Zugriff auf `TimeSeries` SM von Akteur E |
+#### Variante 1: Über die Start-Skripte
+* **Windows (PowerShell)**:
+  ```powershell
+  # Optional, falls bestehenden Cluster vorher löschen:
+  .\k8s\scripts\cluster-down.ps1
+
+  # Cluster erstellen, Images bauen/importieren & alle Charts ausrollen:
+  .\k8s\scripts\cluster-up.ps1
+  ```
+* **macOS / Linux (Bash)**:
+  ```bash
+  # Optional, falls bestehenden Cluster vorher löschen:
+  ./k8s/scripts/cluster-down.sh
+
+  # Cluster erstellen, Images bauen/importieren & alle Charts ausrollen:
+  ./k8s/scripts/cluster-up.sh
+  ```
+
+#### Variante 2: Manuell Schritt für Schritt (ohne `.ps1` / `.sh` Skripte)
+Falls unter Windows die PowerShell `ExecutionPolicy` das Ausführen von `.ps1`-Skripten verhindert, können die Befehle direkt im Projekt-Hauptverzeichnis `mxport-env` ausgeführt werden:
+
+```powershell
+# 1. Optional: Altes Cluster löschen (falls vorhanden)
+k3d cluster delete dataspace
+
+# 2. Neues k3d-Cluster erstellen
+k3d cluster create --config k8s/cluster/k3d-config.yaml
+
+# 3. Lokale Docker-Images bauen (nur nötig, falls noch nicht lokal im Docker-Cache vorhanden)
+docker build -t mxport-leo-gateway:local -f provider/gateway/Dockerfile provider/gateway
+docker build -t mxport-leo-sts:local repos/mxport-leo-token-exchange
+docker build -t mxport-leo-company-lookup:local repos/mxport-leo-company-lookup
+docker pull postgres:16-alpine
+
+# 4. Lokale Images in das k3d-Cluster importieren
+k3d image import mxport-leo-gateway:local -c dataspace
+k3d image import mxport-leo-sts:local -c dataspace
+k3d image import mxport-leo-company-lookup:local -c dataspace
+k3d image import postgres:16-alpine -c dataspace
+
+# 5. Namespace, Keycloak-Realms & zentrale Infrastruktur (Keycloak, MongoDB, Company Lookup) installieren
+kubectl create namespace dataspace
+kubectl create configmap keycloak-realms --from-file=k8s/infra/keycloak/realms -n dataspace
+helm upgrade --install infra k8s/helm/dataspace-infra -n dataspace
+
+# 6. Alle 6 Akteure (A bis F) per Helm installieren
+helm upgrade --install actor-a k8s/helm/dataspace-actor -f k8s/values/actor-a.yaml -n dataspace
+helm upgrade --install actor-b k8s/helm/dataspace-actor -f k8s/values/actor-b.yaml -n dataspace
+helm upgrade --install actor-c k8s/helm/dataspace-actor -f k8s/values/actor-c.yaml -n dataspace
+helm upgrade --install actor-d k8s/helm/dataspace-actor -f k8s/values/actor-d.yaml -n dataspace
+helm upgrade --install actor-e k8s/helm/dataspace-actor -f k8s/values/actor-e.yaml -n dataspace
+helm upgrade --install actor-f k8s/helm/dataspace-actor -f k8s/values/actor-f.yaml -n dataspace
+
+# 7. Status prüfen
+kubectl get pods -n dataspace
+```
 
 ---
 
-## 3. IDTA-Metamodell & TypeScript SDK
+### Fall C: Änderungen an Helm-Charts oder Modellen im laufenden Cluster aktualisieren
+Wenn du eine Konfigurationsdatei oder ein eigenes AAS-Modell unter `k8s/helm/dataspace-actor/files/custom-models/` geändert hast:
 
-Alle AAS-Modelle werden über das offizielle TypeScript SDK (`@aas-core-works/aas-core3.0-typescript`) typisiert erstellt und gegen die formale IDTA V3-Spezifikation validiert:
-
-* **Generator-Skript**: `models/src/generate-models.ts`
-* **Ausgabe**: `k8s/helm/dataspace-actor/files/models/actor-{a..f}.json`
-* **Ausführen**:
-  ```bash
-  npm run generate --prefix models
+* **Alle Akteure & Infrastruktur aktualisieren**:
+  * macOS / Linux: `./k8s/scripts/deploy-all.sh`
+  * Windows: `.\k8s\scripts\deploy-all.ps1`
+* **Nur einen einzelnen Akteur aktualisieren (z. B. Actor E)**:
+  ```powershell
+  helm upgrade --install actor-e k8s/helm/dataspace-actor -f k8s/values/actor-e.yaml -n dataspace
   ```
 
 ---
 
-## 4. Endpunkte (Traefik Ingress auf Port 80)
+## 2. Architektur & Szenario-Überblick
 
-Dank `*.localhost` sind **keine `/etc/hosts`-Einträge erforderlich**:
+Im Datenraum agieren 6 Akteure entlang einer industriellen Liefer- und Fertigungskette. Kein Akteur hat die Repository-URLs anderer Akteure hartcodiert – die Auflösung erfolgt immer dynamisch anhand der Asset-/Shell-/Submodel-URN über den **Company Lookup Service** (`lookup.localhost`).
 
-| Komponente / Akteur | Ingress URL | Zweck / Authentifizierung |
-|---|---|---|
-| **Company Lookup** | `http://lookup.localhost/api/v2/companies` | Zentraler Factory-X Discovery Service (Regex-basiertes Asset-ID Lookup `?asset_id=...`) |
-| **Keycloak** | `http://keycloak.localhost` | Identity Provider (Realms: `BaSyx`, `actor-d`, `actor-e`, `actor-f`) |
-| **Akteur A** | `http://actor-a.localhost` | Public AAS Repo (Servomotor Produktdaten, Pattern `^urn:dataspace:a:`) |
-| **Akteur B** | `http://actor-b.localhost` | Public AAS Repo (Getriebe Produktdaten, Pattern `^urn:dataspace:b:`) |
-| **Akteur C** | `http://actor-c.localhost` | Public AAS Repo (Sensor Produktdaten, Pattern `^urn:dataspace:c:`) |
-| **Akteur D** | `http://actor-d.localhost` | Maschinenbauer AAS Repo (Geschützte Simulationsdaten, Pattern `^urn:dataspace:d:`) |
-| **Akteur E** | `http://actor-e.localhost` | Bauteilfertiger AAS Repo (Nameplate für Partner, geschützte TimeSeries für Kunden, Pattern `^urn:dataspace:e:`) |
-| **Akteur F** | `http://actor-f.localhost` | Kunde von Akteur E (Pattern `^urn:dataspace:f:`) |
+```text
++-----------------+ +-----------------+ +-----------------+
+|    Akteur A     | |    Akteur B     | |    Akteur C     |
+|  (Servo Motor)  | |   (Getriebe)    | |    (Sensor)     |
+|                 | |                 | |                 |
+| Public AAS Repo | | Public AAS Repo | | Public AAS Repo |
++--------+--------+ +--------+--------+ +--------+--------+
+         |                   |                   |
+         +-------------+-----+-------------------+
+                       | Oeffentlicher Komponentenvergleich via Lookup
+                       v
+            +---------------------+
+            |      Akteur D       |
+            |  (Maschinenbauer)   |
+            |                     |
+            | - MachineTypeAAS    |
+            | - Simulation SM     | <--- Geschuetzt (Keycloak + Leo STS + BaSyx SecSM)
+            +----------+----------+      Nur fuer Kunden mit Rolle 'customer-d' (Akteur E)
+                       |
+                       | Kauf der Maschine & Zugriff auf SimulationModel
+                       v
+            +---------------------+
+            |      Akteur E       |
+            | (Bauteilfertigung)  |
+            |                     |
+            | - Nameplate SM      | <--- Fuer alle authentifizierten Partner sichtbar
+            | - TimeSeries SM     | <--- Geschuetzt (Keycloak + Leo STS + BaSyx SecSM)
+            +----------+----------+      Nur fuer Kunden mit Rolle 'customer-e' (Akteur F)
+                       |
+                       | Kauf des gefertigten Bauteils
+                       v
+            +---------------------+
+            |      Akteur F       |
+            |     (Endkunde)      |
+            |                     |
+            | Zugriff auf         |
+            | TimeSeries SM von E |
+            +---------------------+
+```
+
+### Die 6 Akteure im Detail
+
+| Akteur | Rolle & Kontext | Standard-AAS & Teilmodelle | Zugriffssteuerung & Rollen |
+|---|---|---|---|
+| **Actor A** | Servomotor-Zulieferer | `ServoMotorAAS` (`urn:dataspace:a:aas:servo-motor-001`)<br>- `Nameplate`<br>- `TechnicalData` (15 kW, IE4) | **Öffentlich** (kein Token erforderlich) |
+| **Actor B** | Getriebe-Zulieferer | `IndustrialGearboxAAS` (`urn:dataspace:b:aas:gearbox-001`)<br>- `Nameplate`<br>- `TechnicalData` (10:1, 450 Nm) | **Öffentlich** (kein Token erforderlich) |
+| **Actor C** | Sensor-Zulieferer | `VibrationSensorAAS` (`urn:dataspace:c:aas:sensor-001`)<br>- `Nameplate`<br>- `TechnicalData` (25.6 kHz, IO-Link) | **Öffentlich** (kein Token erforderlich) |
+| **Actor D** | Maschinenbauer (OEM) | `MillingMachineTypeAAS` (`urn:dataspace:d:aas:machine-type-001`)<br>- `Nameplate`<br>- `TechnicalData` (Referenzen auf A, B, C)<br>- `SimulationModel` | **Keycloak + STS + BaSyx Security SM**<br>- Eigene Rolle: `partner-d`<br>- `SimulationModel` erfordert `customer-d` |
+| **Actor E** | Bauteilfertiger (Kunde von D) | `TurbineBladeProductAAS` (`urn:dataspace:e:aas:produced-part-001`)<br>- `Nameplate` (Referenz auf Maschine D)<br>- `TimeSeries` (Prozessdaten) | **Keycloak + STS + BaSyx Security SM**<br>- Eigene Rollen: `customer-d`, `partner-e`<br>- `Nameplate`: lesbar für Partner (`partner-d`, `customer-e`)<br>- `TimeSeries`: erfordert `customer-e` |
+| **Actor F** | Endkunde (Kunde von E) | `CustomerAeroEngineOEM` (`urn:dataspace:f:aas:customer-profile-001`)<br>- `Nameplate` (Kaufreferenz auf Bauteil E) | **Keycloak-Identität**<br>- Eigene Rollen: `customer-e`, `partner-f`<br>- Erhält Vollzugriff auf `TimeSeries` von E |
 
 ---
 
-## 5. Verifikation & Testmöglichkeiten
+## 3. Endpunkte im Cluster (Traefik Ingress auf Port 80)
 
-Für die Überprüfung aller Szenarien stehen drei aufeinander abgestimmte Werkzeuge zur Verfügung:
+| Dienst / Akteur | Gateway / API-URL | Offizieller BaSyx AAS Viewer | Lookup Asset-ID Regex |
+|---|---|---|---|
+| **Company Lookup** | `http://lookup.localhost/api/v2/companies` | - | - |
+| **Keycloak IdP** | `http://keycloak.localhost` | - | - |
+| **Actor A** | `http://actor-a.localhost/shells` | `http://viewer-a.localhost` | `^urn:dataspace:a:` |
+| **Actor B** | `http://actor-b.localhost/shells` | `http://viewer-b.localhost` | `^urn:dataspace:b:` |
+| **Actor C** | `http://actor-c.localhost/shells` | `http://viewer-c.localhost` | `^urn:dataspace:c:` |
+| **Actor D** | `http://actor-d.localhost/shells` | `http://viewer-d.localhost` | `^urn:dataspace:d:` |
+| **Actor E** | `http://actor-e.localhost/shells` | `http://viewer-e.localhost` | `^urn:dataspace:e:` |
+| **Actor F** | `http://actor-f.localhost/shells` | `http://viewer-f.localhost` | `^urn:dataspace:f:` |
 
-### Option A: Interaktive Web UI (Dataspace Test Workbench) ⭐ *(Empfohlen)*
+### Hinweis zu `*.localhost` unter Windows
+Browser (Chrome, Edge, Firefox) und der Vite-Proxy der Workbench lösen `*.localhost` automatisch auf `127.0.0.1` auf. Damit auch Windows-CLI-Tools oder die Postman-Desktop-App unter Windows alle `*.localhost`-Domains direkt auflösen, kann einmalig in einer **Administrator-PowerShell** das Skript ausgeführt werden:
+```powershell
+.\k8s\scripts\setup-hosts.ps1
+```
 
-Eine grafische Test- und Inspektions-Oberfläche mit Live-Topologie, Schritt-für-Schritt-Szenarien-Explorer, Token-Decoder und 1-Klick Test-Runner:
+---
 
-* **Auf macOS / Linux starten**:
+## 4. Eigene AAS-Shells & Submodels einbinden (Git-ignoriert mit Fallback)
+
+Du kannst die bestehenden Demo-Shells auf zwei Wegen durch eigene Modelle ersetzen oder ergänzen:
+
+### Weg 1: Dauerhaft über Dateien (`k8s/helm/dataspace-actor/files/custom-models/`)
+1. Lege im Ordner `k8s/helm/dataspace-actor/files/custom-models/` eine JSON-Datei mit dem Namen des Akteurs an (z. B. `actor-e.json` oder `actor-a.json`).
+2. Das Format entspricht dem offiziellen IDTA / Eclipse BaSyx V3.0 AAS-Environment-Standard:
+   ```json
+   {
+     "assetAdministrationShells": [ ... ],
+     "submodels": [ ... ],
+     "conceptDescriptions": [ ... ]
+   }
+   ```
+3. Alle `*.json`- und `*.aasx`-Dateien in `custom-models/` werden von **Git ignoriert** (`.gitignore`).
+4. Beim Ausführen von `deploy-all` (bzw. `helm upgrade --install actor-e ...`) lädt Helm automatisch deine Datei aus `custom-models/`. Löschst du die Datei wieder aus `custom-models/`, greift automatisch der **Fallback** auf die Standard-Demo-Datei unter `k8s/helm/dataspace-actor/files/models/<actor>.json`.
+
+### Weg 2: Zur Laufzeit über die Workbench (`Verwaltung`)
+Oben rechts in der Workbench (`http://localhost:5173`) öffnet der Button **`Verwaltung`** drei Werkzeuge:
+1. **Zugriffsrechte (`Actor D` / `Actor E`)**: Steuert live in der MongoDB des **BaSyx Security Submodels** (`/secsm/submodel-elements`), welche Rolle (`customer-e`, `partner-d`, `customer-d`, `partner-f` usw.) Lesezugriff auf welches Teilmodell hat – inklusive 1-Klick-Reset auf die Standard-Berechtigungen.
+2. **Shells & Submodels**: Importiert eigene AAS/Submodel-JSONs zur Laufzeit direkt in das `InMemory`-Repository des gewählten Akteurs und erlaubt das gezielte Löschen einzelner Shells und Submodels.
+3. **Akteure verwalten**: Registriert zusätzliche Akteure persistent in der PostgreSQL-Datenbank des Company Lookup Service und erlaubt deren vollständiges Löschen.
+
+---
+
+## 5. Vue Workbench & E2E-Tests starten
+
+### 1. Vue Dataspace Workbench starten (`http://localhost:5173`)
+* **macOS / Linux**:
   ```bash
   ./k8s/scripts/workbench.sh
   ```
-* **Auf Windows 11 (PowerShell) starten**:
+* **Windows (PowerShell)**:
   ```powershell
   .\k8s\scripts\workbench.ps1
   ```
-* **Im Browser öffnen**: `http://localhost:3333`
-* **Features**:
-  * **Topologie-Map**: Live-Übersicht aller 6 Akteure mit Gateway-Health-Pings.
-  * **Schritt-für-Schritt-Walkthrough**: Jedes Szenario (A/B/C öffentlich, D Simulation geschützt, E Nameplate vs. TimeSeries) einzeln per Klick ausführen und Live-JSON-Payloads inspizieren.
-  * **E2E Test-Runner**: Führt alle 14 Testfälle mit Live-Fortschrittsbalken und detaillierten Laufzeiten aus.
-  * **Token & RBAC Inspector**: Dekodiert JWT-Claims und zeigt, wie Rollen (`customer-d`, `customer-e`, `partner-d`) übertragen werden.
-  * **Demo-Modus**: Umschaltbar auf simulierte Antworten, um die UI und Testfälle auch ohne gestarteten Cluster sofort durchzugehen.
-
----
-
-### Option B: Postman & Newman
-
-Die vollständige Testsuite als standardisierte Postman Collection (v2.1):
-
-* **Collection-Datei**: [k8s/postman/6-Actor-Dataspace.postman_collection.json](file:///Users/laurinmuller/Documents/Studium/masterarbeit/mxport-env/k8s/postman/6-Actor-Dataspace.postman_collection.json)
-* **Direkt per CLI mit Newman ausführen**:
+* **Oder direkt manuell**:
   ```bash
-  npx -y newman run k8s/postman/6-Actor-Dataspace.postman_collection.json
-  ```
-* **In Postman UI**: Datei importieren und über den Collection Runner starten.
-
----
-
-### Option C: Automatisierte CLI Testskripte
-
-* **Windows 11 (PowerShell)**:
-  ```powershell
-  # 1. Cluster starten & alle 6 Akteure bereitstellen
-  .\k8s\scripts\cluster-up.ps1
-
-  # 2. Testsuite ausführen
-  .\k8s\tests\verify_6actor_chain.ps1
-
-  # 3. Cluster stoppen
-  .\k8s\scripts\cluster-down.ps1
+  cd workbench
+  npm install
+  npm run dev
   ```
 
-* **macOS / Linux (Bash)**:
+### 2. Automatisierte E2E-Testsuite (CLI)
+Prüft alle 6 Akteure, den Company Lookup, den STS-Token-Tausch sowie alle Positiv- und Negativ-Zugriffstests (`200 OK`, `401 Unauthorized`, `403 Forbidden`):
+* **macOS / Linux**:
   ```bash
-  # 1. Cluster starten & bereitstellen
-  ./k8s/scripts/cluster-up.sh
-
-  # 2. Testsuite ausführen
   ./k8s/tests/verify_6actor_chain.sh
-
-  # 3. Cluster stoppen
-  ./k8s/scripts/cluster-down.sh
+  ```
+* **Windows (PowerShell)**:
+  ```powershell
+  .\k8s\tests\verify_6actor_chain.ps1
   ```
 
----
-
-## 6. Verifikation der Schutzanforderungen
-
-Die automatisierte Testsuite überprüft folgende Anforderungen:
-1. **Akteure A, B, C sind öffentlich**: Beliebige Aufrufe auf `/shells` und `/submodels` gelingen ohne Token (HTTP 200).
-2. **Akteur D schützt Simulation**:
-   - Aufruf ohne Token: **HTTP 401 Unauthorized**.
-   - Aufruf mit Token von Akteur F (kein Kunde von D): **HTTP 401/403 Forbidden**.
-   - Aufruf von Akteur E (Kunde von D mit Token `actor-e-client`): **HTTP 200 OK** (Simulation Submodel wird geliefert).
-3. **Akteur E differenziert Nameplate vs. TimeSeries**:
-   - Akteur D (nicht-Kunde von E) fragt `Nameplate` ab: **HTTP 200 OK** (*"andere sehen nur Nameplate"*).
-   - Akteur D fragt `TimeSeries` ab: **HTTP 403 Forbidden**.
-   - Kunde F fragt `TimeSeries` ab: **HTTP 200 OK** (Prozess- und Fertigungsdaten werden geliefert).
-   - Aufruf ohne Token auf `TimeSeries`: **HTTP 401 Unauthorized**.
+### 3. Postman Collection / Newman
+Die vollständige E2E-Collection liegt unter `k8s/postman/6-Actor-Dataspace.postman_collection.json`:
+```bash
+npx newman run k8s/postman/6-Actor-Dataspace.postman_collection.json
+```
