@@ -25,8 +25,16 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ## 2. Typische Betriebs-Szenarien (inkl. Fehlerbehebung)
 
-### Szenario A: `no nodes found for given cluster` oder `Kubernetes cluster unreachable`
-Wenn Docker Desktop beendet/neugestartet wurde oder die `k3d`-Container gelöscht wurden:
+### Szenario A: `no nodes found for given cluster` oder `Kubernetes cluster unreachable` / `dial tcp 192.168.x.x: connectex`
+Wenn Docker Desktop beendet/neugestartet wurde, die `k3d`-Container gelöscht wurden oder nach einem WLAN-Wechsel `host.docker.internal` in `~/.kube/config` auf eine alte IP (`192.168.x.x`) zeigt:
+
+#### Schnellfix bei `Get "https://host.docker.internal:...": dial tcp 192.168.x.x` (WLAN gewechselt unter Windows)
+Docker Desktop schreibt unter Windows eine alte WLAN-IP für `host.docker.internal` in die Windows-`hosts`-Datei. `deploy-all.ps1` und `cluster-up.ps1` ersetzen `https://host.docker.internal:` in `~/.kube/config` jetzt automatisch durch `https://127.0.0.1:`.
+Du kannst das auch jederzeit mit diesem Einzeiler in PowerShell reparieren und danach sofort `.\k8s\scripts\deploy-all.ps1` ausführen:
+```powershell
+(Get-Content "$HOME\.kube\config" -Raw) -replace 'https://host\.docker\.internal:', 'https://127.0.0.1:' | Set-Content "$HOME\.kube\config"
+.\k8s\scripts\deploy-all.ps1
+```
 
 #### Option 1: Per Skript (`cluster-up` erkennt defekte/leere Cluster jetzt automatisch!)
 * **Windows (PowerShell)**:

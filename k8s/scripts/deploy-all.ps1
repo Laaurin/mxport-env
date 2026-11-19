@@ -8,6 +8,17 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $K8sDir    = Split-Path -Parent $ScriptDir
 $Namespace = "dataspace"
 
+# Fix Windows Docker Desktop stale 'host.docker.internal' IP in ~/.kube/config after Wi-Fi changes
+$KubeConfigFile = Join-Path $HOME ".kube\config"
+if (Test-Path $KubeConfigFile) {
+    $kcRaw = Get-Content -Path $KubeConfigFile -Raw
+    if ($kcRaw -match "host\.docker\.internal") {
+        Write-Host ">>> Rewriting host.docker.internal to 127.0.0.1 in $KubeConfigFile..." -ForegroundColor Yellow
+        $kcFixed = $kcRaw -replace "https://host\.docker\.internal:", "https://127.0.0.1:"
+        Set-Content -Path $KubeConfigFile -Value $kcFixed -NoNewline
+    }
+}
+
 Write-Host ">>> Creating namespace '$Namespace'..." -ForegroundColor Cyan
 kubectl create namespace $Namespace --dry-run=client -o yaml | kubectl apply -f -
 

@@ -34,6 +34,14 @@ if ($LASTEXITCODE -eq 0 -and $existing) {
     k3d cluster start $ClusterName 2>$null
     if ($LASTEXITCODE -eq 0) {
         k3d kubeconfig merge $ClusterName --kubeconfig-switch-context >$null 2>$null
+        $KubeConfigFile = Join-Path $HOME ".kube\config"
+        if (Test-Path $KubeConfigFile) {
+            $kcRaw = Get-Content -Path $KubeConfigFile -Raw
+            if ($kcRaw -match "host\.docker\.internal") {
+                $kcFixed = $kcRaw -replace "https://host\.docker\.internal:", "https://127.0.0.1:"
+                Set-Content -Path $KubeConfigFile -Value $kcFixed -NoNewline
+            }
+        }
         kubectl get nodes >$null 2>$null
         if ($LASTEXITCODE -eq 0) {
             Write-Host ">>> Cluster '$ClusterName' is running and healthy." -ForegroundColor Green
@@ -50,6 +58,14 @@ $ErrorActionPreference = "Stop"
 if ($needsCreate) {
     Write-Host ">>> Creating k3d cluster '$ClusterName' from config..." -ForegroundColor Cyan
     k3d cluster create --config "$K8sDir\cluster\k3d-config.yaml"
+    $KubeConfigFile = Join-Path $HOME ".kube\config"
+    if (Test-Path $KubeConfigFile) {
+        $kcRaw = Get-Content -Path $KubeConfigFile -Raw
+        if ($kcRaw -match "host\.docker\.internal") {
+            $kcFixed = $kcRaw -replace "https://host\.docker\.internal:", "https://127.0.0.1:"
+            Set-Content -Path $KubeConfigFile -Value $kcFixed -NoNewline
+        }
+    }
 }
 
 Write-Host ">>> Checking local Docker images..." -ForegroundColor Cyan
