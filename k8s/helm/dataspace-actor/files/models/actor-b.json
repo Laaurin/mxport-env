@@ -1,7 +1,7 @@
 {
   "assetAdministrationShells": [
     {
-      "idShort": "IndustrialGearboxAAS",
+      "idShort": "PowerQualityAnalyzerAAS",
       "id": "urn:dataspace:b:aas:gearbox-001",
       "assetInformation": {
         "assetKind": "Instance",
@@ -47,19 +47,19 @@
         {
           "idShort": "ManufacturerName",
           "valueType": "xs:string",
-          "value": "PrecisionGear AG",
+          "value": "GridMetrics Messtechnik AG",
           "modelType": "Property"
         },
         {
           "idShort": "ManufacturerProductDesignation",
           "valueType": "xs:string",
-          "value": "Planetary Precision Gear PG-50",
+          "value": "Power Quality Analyzer & Energy Meter PQA-5000",
           "modelType": "Property"
         },
         {
           "idShort": "SerialNumber",
           "valueType": "xs:string",
-          "value": "PG-50-4821",
+          "value": "GM-PQA50-4821",
           "modelType": "Property"
         },
         {
@@ -85,27 +85,33 @@
       },
       "submodelElements": [
         {
-          "idShort": "GearRatio",
+          "idShort": "NominalVoltageV",
+          "valueType": "xs:double",
+          "value": "690.0",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "MaxCurrentA",
+          "valueType": "xs:double",
+          "value": "125.0",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "AccuracyClass",
           "valueType": "xs:string",
-          "value": "10:1",
+          "value": "0.2S",
           "modelType": "Property"
         },
         {
-          "idShort": "MaxOutputTorqueNm",
-          "valueType": "xs:double",
-          "value": "450.0",
+          "idShort": "HarmonicAnalysisOrder",
+          "valueType": "xs:integer",
+          "value": "63",
           "modelType": "Property"
         },
         {
-          "idShort": "TorsionalBacklashArcmin",
-          "valueType": "xs:double",
-          "value": "1.2",
-          "modelType": "Property"
-        },
-        {
-          "idShort": "EfficiencyPercent",
-          "valueType": "xs:double",
-          "value": "97.5",
+          "idShort": "Interface",
+          "valueType": "xs:string",
+          "value": "Modbus-TCP",
           "modelType": "Property"
         }
       ],

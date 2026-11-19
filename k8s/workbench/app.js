@@ -30,21 +30,21 @@ let tokenCache = {};
 
 // Demo Mock Data
 const MOCK_DATA = {
-  'test_a_shells': { status: 200, body: { result: [{ id: 'urn:dataspace:a:aas:servo-motor-001', idShort: 'ServoMotorAAS', modelType: 'AssetAdministrationShell' }] } },
-  'test_a_tech': { status: 200, body: { id: 'urn:dataspace:a:sm:technical-data', idShort: 'TechnicalData', submodelElements: [{ idShort: 'NominalPowerKW', value: 15.0 }, { idShort: 'EfficiencyClass', value: 'IE4' }] } },
-  'test_b_shells': { status: 200, body: { result: [{ id: 'urn:dataspace:b:aas:gearbox-001', idShort: 'IndustrialGearboxAAS' }] } },
-  'test_b_tech': { status: 200, body: { id: 'urn:dataspace:b:sm:technical-data', idShort: 'TechnicalData', submodelElements: [{ idShort: 'GearRatio', value: '10:1' }, { idShort: 'MaxOutputTorqueNm', value: 450.0 }] } },
-  'test_c_shells': { status: 200, body: { result: [{ id: 'urn:dataspace:c:aas:sensor-001', idShort: 'VibrationSensorAAS' }] } },
-  'test_c_tech': { status: 200, body: { id: 'urn:dataspace:c:sm:technical-data', idShort: 'TechnicalData', submodelElements: [{ idShort: 'SamplingRateKHz', value: 25.6 }, { idShort: 'Interface', value: 'IO-Link' }] } },
+  'test_a_shells': { status: 200, body: { result: [{ id: 'urn:dataspace:a:aas:servo-motor-001', idShort: 'PowerMeterModbusAAS', modelType: 'AssetAdministrationShell' }] } },
+  'test_a_tech': { status: 200, body: { id: 'urn:dataspace:a:sm:technical-data', idShort: 'TechnicalData', submodelElements: [{ idShort: 'NominalVoltageV', value: 400.0 }, { idShort: 'MaxCurrentA', value: 63.0 }] } },
+  'test_b_shells': { status: 200, body: { result: [{ id: 'urn:dataspace:b:aas:gearbox-001', idShort: 'PowerQualityAnalyzerAAS' }] } },
+  'test_b_tech': { status: 200, body: { id: 'urn:dataspace:b:sm:technical-data', idShort: 'TechnicalData', submodelElements: [{ idShort: 'NominalVoltageV', value: 690.0 }, { idShort: 'HarmonicAnalysisOrder', value: 63 }] } },
+  'test_c_shells': { status: 200, body: { result: [{ id: 'urn:dataspace:c:aas:sensor-001', idShort: 'IoTEnergySensorAAS' }] } },
+  'test_c_tech': { status: 200, body: { id: 'urn:dataspace:c:sm:technical-data', idShort: 'TechnicalData', submodelElements: [{ idShort: 'SamplingRateHz', value: 8000 }, { idShort: 'Interface', value: 'MQTT / REST' }] } },
   'test_d_unauth': { status: 401, body: { error: 'Unauthorized', message: 'Full authentication required to access this resource' } },
   'test_d_unauthorized_f': { status: 403, body: { error: 'Forbidden', message: 'Access denied: caller does not possess required role customer-d' } },
   'test_d_shells': { status: 200, body: { result: [{ id: 'urn:dataspace:d:aas:machine-type-001', idShort: 'MillingMachineTypeAAS' }] } },
-  'test_d_tech': { status: 200, body: { id: 'urn:dataspace:d:sm:technical-data', submodelElements: [{ idShort: 'IntegratedMotorRef', value: 'urn:dataspace:a:aas:servo-motor-001' }, { idShort: 'IntegratedGearboxRef', value: 'urn:dataspace:b:aas:gearbox-001' }, { idShort: 'IntegratedSensorRef', value: 'urn:dataspace:c:aas:sensor-001' }] } },
+  'test_d_tech': { status: 200, body: { id: 'urn:dataspace:d:sm:technical-data', submodelElements: [{ idShort: 'IntegratedEnergyMeterRef', value: 'urn:dataspace:a:aas:servo-motor-001' }, { idShort: 'IntegratedPowerQualityMeterRef', value: 'urn:dataspace:b:aas:gearbox-001' }, { idShort: 'IntegratedIoTEnergySensorRef', value: 'urn:dataspace:c:aas:sensor-001' }] } },
   'test_d_auth_e': { status: 200, body: { id: 'urn:dataspace:d:sm:machine-simulation', idShort: 'SimulationModel', submodelElements: [{ idShort: 'SimulationType', value: 'KinematicAndThermalFEA' }, { idShort: 'ModelVersion', value: 'v3.2.1' }, { idShort: 'ToolCenterPointPrecisionMicron', value: 2.5 }, { idShort: 'SimulationPackageUrl', value: 's3://apex-simulation-vault/packages/v5-thermal-fea.fmu' }] } },
-  'test_e_nameplate_d': { status: 200, body: { id: 'urn:dataspace:e:sm:nameplate', idShort: 'Nameplate', submodelElements: [{ idShort: 'ManufacturerName', value: 'PrecisionAero Components GmbH' }, { idShort: 'ManufacturerProductDesignation', value: 'HighPressure Turbine Blade Ti-6Al-4V' }, { idShort: 'ProducingMachineRef', value: 'urn:dataspace:d:aas:machine-type-001' }] } },
+  'test_e_nameplate_d': { status: 200, body: { id: 'urn:dataspace:e:sm:nameplate', idShort: 'Nameplate', submodelElements: [{ idShort: 'ManufacturerName', value: 'PrecisionDrive Components GmbH' }, { idShort: 'ManufacturerProductDesignation', value: 'Ground Helical Gearwheel Module 4 (Zahnrad)' }, { idShort: 'ProducingMachineRef', value: 'urn:dataspace:d:aas:machine-type-001' }] } },
   'test_e_timeseries_d': { status: 403, body: { error: 'Forbidden', message: 'Policy enforcement: role partner-d is restricted to Nameplate; TimeSeries requires customer-e' } },
   'test_e_timeseries_f': { status: 200, body: { id: 'urn:dataspace:e:sm:timeseries', idShort: 'TimeSeries', submodelElements: [{ idShort: 'ProcessRecordCount', value: 3600 }, { idShort: 'AverageMillingTemperatureCelsius', value: 142.8 }, { idShort: 'PeakVibrationRMS', value: 0.45 }, { idShort: 'SurfaceRoughnessRaMicron', value: 0.38 }] } },
-  'test_f_full_verify': { status: 200, body: { certificate: 'Aviation Quality Inspection Passed', workpieceId: 'HPTB-2026-0042', verifiedMetrics: { maxTemp: 142.8, rmsVibration: 0.45, surfaceRoughnessRa: 0.38 } } }
+  'test_f_full_verify': { status: 200, body: { certificate: 'Gear Quality Inspection Passed', workpieceId: 'GEAR-2026-0042', verifiedMetrics: { maxTemp: 142.8, rmsVibration: 0.45, surfaceRoughnessRa: 0.38 } } }
 };
 
 // -----------------------------------------------------------------------------

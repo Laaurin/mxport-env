@@ -1,7 +1,7 @@
 {
   "assetAdministrationShells": [
     {
-      "idShort": "CustomerAeroEngineOEM",
+      "idShort": "CustomerDriveSystemsOEM",
       "id": "urn:dataspace:f:aas:customer-profile-001",
       "assetInformation": {
         "assetKind": "Instance",
@@ -38,13 +38,13 @@
         {
           "idShort": "CustomerName",
           "valueType": "xs:string",
-          "value": "AeroEngine Global Corp",
+          "value": "DriveSystems Global Corp",
           "modelType": "Property"
         },
         {
           "idShort": "ProcurementProject",
           "valueType": "xs:string",
-          "value": "NextGen Turbofan Engine X200",
+          "value": "HighTorque Industrial Drive Transmission H200",
           "modelType": "Property"
         },
         {

@@ -1,7 +1,7 @@
 {
   "assetAdministrationShells": [
     {
-      "idShort": "VibrationSensorAAS",
+      "idShort": "IoTEnergySensorAAS",
       "id": "urn:dataspace:c:aas:sensor-001",
       "assetInformation": {
         "assetKind": "Instance",
@@ -47,19 +47,19 @@
         {
           "idShort": "ManufacturerName",
           "valueType": "xs:string",
-          "value": "SensX Automation Solutions",
+          "value": "SensX Energy IoT Solutions",
           "modelType": "Property"
         },
         {
           "idShort": "ManufacturerProductDesignation",
           "valueType": "xs:string",
-          "value": "Triaxial Vibration Sensor VIB-3X",
+          "value": "Multifunction IoT Energy Sensor EM-IoT",
           "modelType": "Property"
         },
         {
           "idShort": "SerialNumber",
           "valueType": "xs:string",
-          "value": "SX-VIB-3012",
+          "value": "SX-EMI-3012",
           "modelType": "Property"
         },
         {
@@ -85,21 +85,33 @@
       },
       "submodelElements": [
         {
-          "idShort": "SamplingRateKHz",
+          "idShort": "NominalVoltageV",
           "valueType": "xs:double",
-          "value": "25.6",
+          "value": "400.0",
           "modelType": "Property"
         },
         {
-          "idShort": "MeasuringRangeG",
+          "idShort": "MaxCurrentA",
           "valueType": "xs:double",
-          "value": "50.0",
+          "value": "500.0",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "SamplingRateHz",
+          "valueType": "xs:integer",
+          "value": "8000",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "AccuracyClass",
+          "valueType": "xs:string",
+          "value": "1.0",
           "modelType": "Property"
         },
         {
           "idShort": "Interface",
           "valueType": "xs:string",
-          "value": "IO-Link",
+          "value": "MQTT / REST",
           "modelType": "Property"
         }
       ],

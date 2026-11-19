@@ -1,7 +1,7 @@
 {
   "assetAdministrationShells": [
     {
-      "idShort": "TurbineBladeProductAAS",
+      "idShort": "PrecisionGearProductAAS",
       "id": "urn:dataspace:e:aas:produced-part-001",
       "assetInformation": {
         "assetKind": "Instance",
@@ -47,19 +47,19 @@
         {
           "idShort": "ManufacturerName",
           "valueType": "xs:string",
-          "value": "PrecisionAero Components GmbH",
+          "value": "PrecisionDrive Components GmbH",
           "modelType": "Property"
         },
         {
           "idShort": "ManufacturerProductDesignation",
           "valueType": "xs:string",
-          "value": "HighPressure Turbine Blade Ti-6Al-4V",
+          "value": "Ground Helical Gearwheel Module 4 (Zahnrad)",
           "modelType": "Property"
         },
         {
           "idShort": "PartSerialNumber",
           "valueType": "xs:string",
-          "value": "HPTB-2026-0042",
+          "value": "GEAR-2026-0042",
           "modelType": "Property"
         },
         {
@@ -123,7 +123,7 @@
         {
           "idShort": "TimeSeriesStorageUrl",
           "valueType": "xs:string",
-          "value": "https://influxdb.internal.e/query?part=HPTB-2026-0042",
+          "value": "https://influxdb.internal.e/query?part=GEAR-2026-0042",
           "modelType": "Property"
         }
       ],

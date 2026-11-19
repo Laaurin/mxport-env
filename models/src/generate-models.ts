@@ -30,7 +30,7 @@ function createProperty(
 }
 
 // -----------------------------------------------------------------------------
-// 1. Akteur A: Servo Motor Supplier (Public AAS Repo)
+// 1. Akteur A: Energy Meter Supplier 1 (Modbus DIN-Rail Power Meter)
 // -----------------------------------------------------------------------------
 export function buildActorAEnvironment(): types.Environment {
   const aasId = 'urn:dataspace:a:aas:servo-motor-001';
@@ -40,7 +40,7 @@ export function buildActorAEnvironment(): types.Environment {
 
   const assetInfo = new types.AssetInformation(types.AssetKind.Instance, assetId);
   const shell = new types.AssetAdministrationShell(aasId, assetInfo);
-  shell.idShort = 'ServoMotorAAS';
+  shell.idShort = 'PowerMeterModbusAAS';
   shell.submodels = [
     createModelReference(types.KeyTypes.Submodel, smNameplateId),
     createModelReference(types.KeyTypes.Submodel, smTechId)
@@ -51,9 +51,9 @@ export function buildActorAEnvironment(): types.Environment {
   smNameplate.idShort = 'Nameplate';
   smNameplate.semanticId = createSemanticReference(IDTA_NAMEPLATE_SEMANTIC_ID);
   smNameplate.submodelElements = [
-    createProperty('ManufacturerName', types.DataTypeDefXsd.String, 'MotorTech Antriebssysteme GmbH'),
-    createProperty('ManufacturerProductDesignation', types.DataTypeDefXsd.String, 'HighTorque ServoDrive S7'),
-    createProperty('SerialNumber', types.DataTypeDefXsd.String, 'MT-S7-99214'),
+    createProperty('ManufacturerName', types.DataTypeDefXsd.String, 'VoltSense Energy Systems GmbH'),
+    createProperty('ManufacturerProductDesignation', types.DataTypeDefXsd.String, 'Three-Phase DIN-Rail Energy Meter EM-300'),
+    createProperty('SerialNumber', types.DataTypeDefXsd.String, 'VS-EM300-99214'),
     createProperty('YearOfConstruction', types.DataTypeDefXsd.String, '2026')
   ];
 
@@ -62,10 +62,11 @@ export function buildActorAEnvironment(): types.Environment {
   smTech.idShort = 'TechnicalData';
   smTech.semanticId = createSemanticReference(IDTA_TECHNICAL_DATA_SEMANTIC_ID);
   smTech.submodelElements = [
-    createProperty('NominalPowerKW', types.DataTypeDefXsd.Double, '15.0'),
-    createProperty('MaxTorqueNm', types.DataTypeDefXsd.Double, '75.0'),
-    createProperty('RatedSpeedRPM', types.DataTypeDefXsd.Integer, '3000'),
-    createProperty('EfficiencyClass', types.DataTypeDefXsd.String, 'IE4')
+    createProperty('NominalVoltageV', types.DataTypeDefXsd.Double, '400.0'),
+    createProperty('MaxCurrentA', types.DataTypeDefXsd.Double, '63.0'),
+    createProperty('SamplingRateHz', types.DataTypeDefXsd.Integer, '50'),
+    createProperty('AccuracyClass', types.DataTypeDefXsd.String, '0.5S'),
+    createProperty('Interface', types.DataTypeDefXsd.String, 'Modbus-RTU')
   ];
 
   const env = new types.Environment();
@@ -75,7 +76,7 @@ export function buildActorAEnvironment(): types.Environment {
 }
 
 // -----------------------------------------------------------------------------
-// 2. Akteur B: Industrial Gearbox Supplier (Public AAS Repo)
+// 2. Akteur B: Energy Meter Supplier 2 (Power Quality Analyzer)
 // -----------------------------------------------------------------------------
 export function buildActorBEnvironment(): types.Environment {
   const aasId = 'urn:dataspace:b:aas:gearbox-001';
@@ -85,7 +86,7 @@ export function buildActorBEnvironment(): types.Environment {
 
   const assetInfo = new types.AssetInformation(types.AssetKind.Instance, assetId);
   const shell = new types.AssetAdministrationShell(aasId, assetInfo);
-  shell.idShort = 'IndustrialGearboxAAS';
+  shell.idShort = 'PowerQualityAnalyzerAAS';
   shell.submodels = [
     createModelReference(types.KeyTypes.Submodel, smNameplateId),
     createModelReference(types.KeyTypes.Submodel, smTechId)
@@ -96,9 +97,9 @@ export function buildActorBEnvironment(): types.Environment {
   smNameplate.idShort = 'Nameplate';
   smNameplate.semanticId = createSemanticReference(IDTA_NAMEPLATE_SEMANTIC_ID);
   smNameplate.submodelElements = [
-    createProperty('ManufacturerName', types.DataTypeDefXsd.String, 'PrecisionGear AG'),
-    createProperty('ManufacturerProductDesignation', types.DataTypeDefXsd.String, 'Planetary Precision Gear PG-50'),
-    createProperty('SerialNumber', types.DataTypeDefXsd.String, 'PG-50-4821'),
+    createProperty('ManufacturerName', types.DataTypeDefXsd.String, 'GridMetrics Messtechnik AG'),
+    createProperty('ManufacturerProductDesignation', types.DataTypeDefXsd.String, 'Power Quality Analyzer & Energy Meter PQA-5000'),
+    createProperty('SerialNumber', types.DataTypeDefXsd.String, 'GM-PQA50-4821'),
     createProperty('YearOfConstruction', types.DataTypeDefXsd.String, '2026')
   ];
 
@@ -107,10 +108,11 @@ export function buildActorBEnvironment(): types.Environment {
   smTech.idShort = 'TechnicalData';
   smTech.semanticId = createSemanticReference(IDTA_TECHNICAL_DATA_SEMANTIC_ID);
   smTech.submodelElements = [
-    createProperty('GearRatio', types.DataTypeDefXsd.String, '10:1'),
-    createProperty('MaxOutputTorqueNm', types.DataTypeDefXsd.Double, '450.0'),
-    createProperty('TorsionalBacklashArcmin', types.DataTypeDefXsd.Double, '1.2'),
-    createProperty('EfficiencyPercent', types.DataTypeDefXsd.Double, '97.5')
+    createProperty('NominalVoltageV', types.DataTypeDefXsd.Double, '690.0'),
+    createProperty('MaxCurrentA', types.DataTypeDefXsd.Double, '125.0'),
+    createProperty('AccuracyClass', types.DataTypeDefXsd.String, '0.2S'),
+    createProperty('HarmonicAnalysisOrder', types.DataTypeDefXsd.Integer, '63'),
+    createProperty('Interface', types.DataTypeDefXsd.String, 'Modbus-TCP')
   ];
 
   const env = new types.Environment();
@@ -120,7 +122,7 @@ export function buildActorBEnvironment(): types.Environment {
 }
 
 // -----------------------------------------------------------------------------
-// 3. Akteur C: Vibration Sensor Supplier (Public AAS Repo)
+// 3. Akteur C: Energy Meter Supplier 3 (IoT Multifunction Energy Sensor)
 // -----------------------------------------------------------------------------
 export function buildActorCEnvironment(): types.Environment {
   const aasId = 'urn:dataspace:c:aas:sensor-001';
@@ -130,7 +132,7 @@ export function buildActorCEnvironment(): types.Environment {
 
   const assetInfo = new types.AssetInformation(types.AssetKind.Instance, assetId);
   const shell = new types.AssetAdministrationShell(aasId, assetInfo);
-  shell.idShort = 'VibrationSensorAAS';
+  shell.idShort = 'IoTEnergySensorAAS';
   shell.submodels = [
     createModelReference(types.KeyTypes.Submodel, smNameplateId),
     createModelReference(types.KeyTypes.Submodel, smTechId)
@@ -141,9 +143,9 @@ export function buildActorCEnvironment(): types.Environment {
   smNameplate.idShort = 'Nameplate';
   smNameplate.semanticId = createSemanticReference(IDTA_NAMEPLATE_SEMANTIC_ID);
   smNameplate.submodelElements = [
-    createProperty('ManufacturerName', types.DataTypeDefXsd.String, 'SensX Automation Solutions'),
-    createProperty('ManufacturerProductDesignation', types.DataTypeDefXsd.String, 'Triaxial Vibration Sensor VIB-3X'),
-    createProperty('SerialNumber', types.DataTypeDefXsd.String, 'SX-VIB-3012'),
+    createProperty('ManufacturerName', types.DataTypeDefXsd.String, 'SensX Energy IoT Solutions'),
+    createProperty('ManufacturerProductDesignation', types.DataTypeDefXsd.String, 'Multifunction IoT Energy Sensor EM-IoT'),
+    createProperty('SerialNumber', types.DataTypeDefXsd.String, 'SX-EMI-3012'),
     createProperty('YearOfConstruction', types.DataTypeDefXsd.String, '2026')
   ];
 
@@ -152,9 +154,11 @@ export function buildActorCEnvironment(): types.Environment {
   smTech.idShort = 'TechnicalData';
   smTech.semanticId = createSemanticReference(IDTA_TECHNICAL_DATA_SEMANTIC_ID);
   smTech.submodelElements = [
-    createProperty('SamplingRateKHz', types.DataTypeDefXsd.Double, '25.6'),
-    createProperty('MeasuringRangeG', types.DataTypeDefXsd.Double, '50.0'),
-    createProperty('Interface', types.DataTypeDefXsd.String, 'IO-Link')
+    createProperty('NominalVoltageV', types.DataTypeDefXsd.Double, '400.0'),
+    createProperty('MaxCurrentA', types.DataTypeDefXsd.Double, '500.0'),
+    createProperty('SamplingRateHz', types.DataTypeDefXsd.Integer, '8000'),
+    createProperty('AccuracyClass', types.DataTypeDefXsd.String, '1.0'),
+    createProperty('Interface', types.DataTypeDefXsd.String, 'MQTT / REST')
   ];
 
   const env = new types.Environment();
@@ -164,7 +168,7 @@ export function buildActorCEnvironment(): types.Environment {
 }
 
 // -----------------------------------------------------------------------------
-// 4. Akteur D: Machine Manufacturer (Maschinenbauer mit Simulation Submodel)
+// 4. Akteur D: Machine Manufacturer (CNC-Fräsmaschine mit Simulation Submodel)
 // -----------------------------------------------------------------------------
 export function buildActorDEnvironment(): types.Environment {
   const aasId = 'urn:dataspace:d:aas:machine-type-001';
@@ -192,7 +196,7 @@ export function buildActorDEnvironment(): types.Environment {
     createProperty('MachineType', types.DataTypeDefXsd.String, 'Industrial Milling Machine Type AAS')
   ];
 
-  // Technical Data Submodel (referencing components from A, B, C)
+  // Technical Data Submodel (referencing energy meter components from A, B, C)
   const smTech = new types.Submodel(smTechId);
   smTech.idShort = 'TechnicalData';
   smTech.semanticId = createSemanticReference(IDTA_TECHNICAL_DATA_SEMANTIC_ID);
@@ -200,9 +204,9 @@ export function buildActorDEnvironment(): types.Environment {
     createProperty('SpindlePowerKW', types.DataTypeDefXsd.Double, '22.0'),
     createProperty('MaxSpindleSpeedRPM', types.DataTypeDefXsd.Integer, '18000'),
     createProperty('AxisCount', types.DataTypeDefXsd.Integer, '5'),
-    createProperty('IntegratedMotorRef', types.DataTypeDefXsd.String, 'urn:dataspace:a:aas:servo-motor-001'),
-    createProperty('IntegratedGearboxRef', types.DataTypeDefXsd.String, 'urn:dataspace:b:aas:gearbox-001'),
-    createProperty('IntegratedSensorRef', types.DataTypeDefXsd.String, 'urn:dataspace:c:aas:sensor-001')
+    createProperty('IntegratedEnergyMeterRef', types.DataTypeDefXsd.String, 'urn:dataspace:a:aas:servo-motor-001'),
+    createProperty('IntegratedPowerQualityMeterRef', types.DataTypeDefXsd.String, 'urn:dataspace:b:aas:gearbox-001'),
+    createProperty('IntegratedIoTEnergySensorRef', types.DataTypeDefXsd.String, 'urn:dataspace:c:aas:sensor-001')
   ];
 
   // Simulation Submodel (Restricted to paying customers like Akteur E)
@@ -225,7 +229,7 @@ export function buildActorDEnvironment(): types.Environment {
 }
 
 // -----------------------------------------------------------------------------
-// 5. Akteur E: Production Plant (Hersteller mit TimeSeries Submodel)
+// 5. Akteur E: Component Producer (Fertigt Zahnrad auf Fräsmaschine D)
 // -----------------------------------------------------------------------------
 export function buildActorEEnvironment(): types.Environment {
   const aasId = 'urn:dataspace:e:aas:produced-part-001';
@@ -235,7 +239,7 @@ export function buildActorEEnvironment(): types.Environment {
 
   const assetInfo = new types.AssetInformation(types.AssetKind.Instance, assetId);
   const shell = new types.AssetAdministrationShell(aasId, assetInfo);
-  shell.idShort = 'TurbineBladeProductAAS';
+  shell.idShort = 'PrecisionGearProductAAS';
   shell.submodels = [
     createModelReference(types.KeyTypes.Submodel, smNameplateId),
     createModelReference(types.KeyTypes.Submodel, smTimeSeriesId)
@@ -246,9 +250,9 @@ export function buildActorEEnvironment(): types.Environment {
   smNameplate.idShort = 'Nameplate';
   smNameplate.semanticId = createSemanticReference(IDTA_NAMEPLATE_SEMANTIC_ID);
   smNameplate.submodelElements = [
-    createProperty('ManufacturerName', types.DataTypeDefXsd.String, 'PrecisionAero Components GmbH'),
-    createProperty('ManufacturerProductDesignation', types.DataTypeDefXsd.String, 'HighPressure Turbine Blade Ti-6Al-4V'),
-    createProperty('PartSerialNumber', types.DataTypeDefXsd.String, 'HPTB-2026-0042'),
+    createProperty('ManufacturerName', types.DataTypeDefXsd.String, 'PrecisionDrive Components GmbH'),
+    createProperty('ManufacturerProductDesignation', types.DataTypeDefXsd.String, 'Ground Helical Gearwheel Module 4 (Zahnrad)'),
+    createProperty('PartSerialNumber', types.DataTypeDefXsd.String, 'GEAR-2026-0042'),
     createProperty('ManufacturingDate', types.DataTypeDefXsd.String, '2026-10-12'),
     createProperty('ProducingMachineRef', types.DataTypeDefXsd.String, 'urn:dataspace:d:aas:machine-type-001')
   ];
@@ -263,7 +267,7 @@ export function buildActorEEnvironment(): types.Environment {
     createProperty('PeakVibrationRMS', types.DataTypeDefXsd.Double, '0.45'),
     createProperty('SurfaceRoughnessRaMicron', types.DataTypeDefXsd.Double, '0.38'),
     createProperty('SpindleLoadPercent', types.DataTypeDefXsd.Double, '68.4'),
-    createProperty('TimeSeriesStorageUrl', types.DataTypeDefXsd.String, 'https://influxdb.internal.e/query?part=HPTB-2026-0042')
+    createProperty('TimeSeriesStorageUrl', types.DataTypeDefXsd.String, 'https://influxdb.internal.e/query?part=GEAR-2026-0042')
   ];
 
   const env = new types.Environment();
@@ -273,7 +277,7 @@ export function buildActorEEnvironment(): types.Environment {
 }
 
 // -----------------------------------------------------------------------------
-// 6. Akteur F: Customer of E (Endkunde)
+// 6. Akteur F: Customer of E (Käufer des gefertigten Zahnrads)
 // -----------------------------------------------------------------------------
 export function buildActorFEnvironment(): types.Environment {
   const aasId = 'urn:dataspace:f:aas:customer-profile-001';
@@ -282,7 +286,7 @@ export function buildActorFEnvironment(): types.Environment {
 
   const assetInfo = new types.AssetInformation(types.AssetKind.Instance, assetId);
   const shell = new types.AssetAdministrationShell(aasId, assetInfo);
-  shell.idShort = 'CustomerAeroEngineOEM';
+  shell.idShort = 'CustomerDriveSystemsOEM';
   shell.submodels = [
     createModelReference(types.KeyTypes.Submodel, smNameplateId)
   ];
@@ -291,8 +295,8 @@ export function buildActorFEnvironment(): types.Environment {
   smNameplate.idShort = 'Nameplate';
   smNameplate.semanticId = createSemanticReference(IDTA_NAMEPLATE_SEMANTIC_ID);
   smNameplate.submodelElements = [
-    createProperty('CustomerName', types.DataTypeDefXsd.String, 'AeroEngine Global Corp'),
-    createProperty('ProcurementProject', types.DataTypeDefXsd.String, 'NextGen Turbofan Engine X200'),
+    createProperty('CustomerName', types.DataTypeDefXsd.String, 'DriveSystems Global Corp'),
+    createProperty('ProcurementProject', types.DataTypeDefXsd.String, 'HighTorque Industrial Drive Transmission H200'),
     createProperty('AuthorizedCustomerFor', types.DataTypeDefXsd.String, 'urn:dataspace:e:aas:produced-part-001')
   ];
 

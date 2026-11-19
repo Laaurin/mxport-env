@@ -106,19 +106,19 @@
           "modelType": "Property"
         },
         {
-          "idShort": "IntegratedMotorRef",
+          "idShort": "IntegratedEnergyMeterRef",
           "valueType": "xs:string",
           "value": "urn:dataspace:a:aas:servo-motor-001",
           "modelType": "Property"
         },
         {
-          "idShort": "IntegratedGearboxRef",
+          "idShort": "IntegratedPowerQualityMeterRef",
           "valueType": "xs:string",
           "value": "urn:dataspace:b:aas:gearbox-001",
           "modelType": "Property"
         },
         {
-          "idShort": "IntegratedSensorRef",
+          "idShort": "IntegratedIoTEnergySensorRef",
           "valueType": "xs:string",
           "value": "urn:dataspace:c:aas:sensor-001",
           "modelType": "Property"

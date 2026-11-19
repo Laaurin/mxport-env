@@ -78,7 +78,7 @@ data:
   dataspace-actors.seed.json: |
     [
       {
-        "name": "Actor A - Servo Motor Supplier",
+        "name": "Actor A - Energy Meter Supplier",
         "domain": "actor-a.localhost",
         "endpoints": [
           {
@@ -101,15 +101,15 @@ data:
         "nameOptions": [
           "Actor A",
           "actor-a",
-          "Servo Motor Supplier",
-          "MotorTech Antriebssysteme GmbH"
+          "Energy Meter Supplier",
+          "VoltSense Energy Systems GmbH"
         ],
         "assetIdRegexPatterns": [
           "^urn:dataspace:a:"
         ]
       },
       {
-        "name": "Actor B - Gearbox Supplier",
+        "name": "Actor B - Power Quality Analyzer Supplier",
         "domain": "actor-b.localhost",
         "endpoints": [
           {
@@ -132,15 +132,15 @@ data:
         "nameOptions": [
           "Actor B",
           "actor-b",
-          "Gearbox Supplier",
-          "PrecisionGear AG"
+          "Power Quality Analyzer Supplier",
+          "GridMetrics Messtechnik AG"
         ],
         "assetIdRegexPatterns": [
           "^urn:dataspace:b:"
         ]
       },
       {
-        "name": "Actor C - Sensor Supplier",
+        "name": "Actor C - IoT Energy Sensor Supplier",
         "domain": "actor-c.localhost",
         "endpoints": [
           {
@@ -163,8 +163,8 @@ data:
         "nameOptions": [
           "Actor C",
           "actor-c",
-          "Sensor Supplier",
-          "SensX Automation Solutions"
+          "IoT Energy Sensor Supplier",
+          "SensX Energy IoT Solutions"
         ],
         "assetIdRegexPatterns": [
           "^urn:dataspace:c:"
@@ -202,7 +202,7 @@ data:
         ]
       },
       {
-        "name": "Actor E - Production Plant",
+        "name": "Actor E - Component Producer",
         "domain": "actor-e.localhost",
         "endpoints": [
           {
@@ -225,8 +225,8 @@ data:
         "nameOptions": [
           "Actor E",
           "actor-e",
-          "Production Plant",
-          "PrecisionAero Components GmbH"
+          "Component Producer",
+          "PrecisionDrive Components GmbH"
         ],
         "assetIdRegexPatterns": [
           "^urn:dataspace:e:"
@@ -257,7 +257,7 @@ data:
           "Actor F",
           "actor-f",
           "End Customer",
-          "AeroEngine Global Corp"
+          "DriveSystems Global Corp"
         ],
         "assetIdRegexPatterns": [
           "^urn:dataspace:f:"

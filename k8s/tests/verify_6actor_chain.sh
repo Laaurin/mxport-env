@@ -141,47 +141,47 @@ check_health "$ACTOR_F_GW/healthz" "Actor F Gateway"
 # ------------------------------------------------------------------------------
 log_step "Phase 1: Public Access to Product Information (Actor A, B, C)"
 
-# Actor A: Servo Motor
+# Actor A: Energy Meter 1 (PowerMeterModbusAAS)
 RESP_A=$(curl -s -w "\n%{http_code}" "$ACTOR_A_GW/shells")
 CODE_A=$(echo "$RESP_A" | tail -n1)
 BODY_A=$(echo "$RESP_A" | sed '$d')
 assert_status "$CODE_A" "200" "Public query to Actor A /shells (no token required)"
-assert_contains "$BODY_A" "ServoMotorAAS" "Actor A returns ServoMotorAAS"
+assert_contains "$BODY_A" "PowerMeterModbusAAS" "Actor A returns PowerMeterModbusAAS"
 
 SM_A_TECH=$(echo -n "urn:dataspace:a:sm:technical-data" | base64)
 RESP_A_TECH=$(curl -s -w "\n%{http_code}" "$ACTOR_A_GW/submodels/$SM_A_TECH")
 CODE_A_TECH=$(echo "$RESP_A_TECH" | tail -n1)
 BODY_A_TECH=$(echo "$RESP_A_TECH" | sed '$d')
 assert_status "$CODE_A_TECH" "200" "Public query to Actor A TechnicalData submodel"
-assert_contains "$BODY_A_TECH" "NominalPowerKW" "Actor A returns motor technical data"
+assert_contains "$BODY_A_TECH" "NominalVoltageV" "Actor A returns energy meter technical data"
 
-# Actor B: Industrial Gearbox
+# Actor B: Energy Meter 2 (PowerQualityAnalyzerAAS)
 RESP_B=$(curl -s -w "\n%{http_code}" "$ACTOR_B_GW/shells")
 CODE_B=$(echo "$RESP_B" | tail -n1)
 BODY_B=$(echo "$RESP_B" | sed '$d')
 assert_status "$CODE_B" "200" "Public query to Actor B /shells (no token required)"
-assert_contains "$BODY_B" "IndustrialGearboxAAS" "Actor B returns IndustrialGearboxAAS"
+assert_contains "$BODY_B" "PowerQualityAnalyzerAAS" "Actor B returns PowerQualityAnalyzerAAS"
 
 SM_B_TECH=$(echo -n "urn:dataspace:b:sm:technical-data" | base64)
 RESP_B_TECH=$(curl -s -w "\n%{http_code}" "$ACTOR_B_GW/submodels/$SM_B_TECH")
 CODE_B_TECH=$(echo "$RESP_B_TECH" | tail -n1)
 BODY_B_TECH=$(echo "$RESP_B_TECH" | sed '$d')
 assert_status "$CODE_B_TECH" "200" "Public query to Actor B TechnicalData submodel"
-assert_contains "$BODY_B_TECH" "GearRatio" "Actor B returns gearbox technical data"
+assert_contains "$BODY_B_TECH" "HarmonicAnalysisOrder" "Actor B returns power quality analyzer technical data"
 
-# Actor C: Vibration Sensor
+# Actor C: Energy Meter 3 (IoTEnergySensorAAS)
 RESP_C=$(curl -s -w "\n%{http_code}" "$ACTOR_C_GW/shells")
 CODE_C=$(echo "$RESP_C" | tail -n1)
 BODY_C=$(echo "$RESP_C" | sed '$d')
 assert_status "$CODE_C" "200" "Public query to Actor C /shells (no token required)"
-assert_contains "$BODY_C" "VibrationSensorAAS" "Actor C returns VibrationSensorAAS"
+assert_contains "$BODY_C" "IoTEnergySensorAAS" "Actor C returns IoTEnergySensorAAS"
 
 SM_C_TECH=$(echo -n "urn:dataspace:c:sm:technical-data" | base64)
 RESP_C_TECH=$(curl -s -w "\n%{http_code}" "$ACTOR_C_GW/submodels/$SM_C_TECH")
 CODE_C_TECH=$(echo "$RESP_C_TECH" | tail -n1)
 BODY_C_TECH=$(echo "$RESP_C_TECH" | sed '$d')
 assert_status "$CODE_C_TECH" "200" "Public query to Actor C TechnicalData submodel"
-assert_contains "$BODY_C_TECH" "SamplingRateKHz" "Actor C returns sensor technical data"
+assert_contains "$BODY_C_TECH" "SamplingRateHz" "Actor C returns IoT energy sensor technical data"
 
 # ------------------------------------------------------------------------------
 # Phase 2: Negative Testing on Actor D (Protected Simulation Submodel)
@@ -249,9 +249,9 @@ RESP_D_TECH=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $TOKEN_E" "$
 CODE_D_TECH=$(echo "$RESP_D_TECH" | tail -n1)
 BODY_D_TECH=$(echo "$RESP_D_TECH" | sed '$d')
 assert_status "$CODE_D_TECH" "200" "Customer E queries Actor D TechnicalData"
-assert_contains "$BODY_D_TECH" "IntegratedMotorRef" "Actor D compares and integrates Actor A Motor"
-assert_contains "$BODY_D_TECH" "IntegratedGearboxRef" "Actor D compares and integrates Actor B Gearbox"
-assert_contains "$BODY_D_TECH" "IntegratedSensorRef" "Actor D compares and integrates Actor C Sensor"
+assert_contains "$BODY_D_TECH" "IntegratedEnergyMeterRef" "Actor D references Actor A Energy Meter"
+assert_contains "$BODY_D_TECH" "IntegratedPowerQualityMeterRef" "Actor D references Actor B Power Quality Analyzer"
+assert_contains "$BODY_D_TECH" "IntegratedIoTEnergySensorRef" "Actor D references Actor C IoT Energy Sensor"
 
 # Customer E queries Simulation Submodel (Authorized!)
 RESP_D_SIM=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $TOKEN_E" "$ACTOR_D_GW/submodels/$SM_D_SIM")
@@ -274,7 +274,7 @@ RESP_E_NP_D=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $TOKEN_D" "$
 CODE_E_NP_D=$(echo "$RESP_E_NP_D" | tail -n1)
 BODY_E_NP_D=$(echo "$RESP_E_NP_D" | sed '$d')
 assert_status "$CODE_E_NP_D" "200" "Actor D can read Actor E Nameplate ('andere sehen Nameplate')"
-assert_contains "$BODY_E_NP_D" "Turbine Blade" "Nameplate returns product designation"
+assert_contains "$BODY_E_NP_D" "Zahnrad" "Nameplate returns product designation (Zahnrad)"
 
 # 4.2 Actor D (non-customer) queries Actor E TimeSeries (Must be 403 Forbidden!)
 RESP_E_TS_D=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $TOKEN_D" "$ACTOR_E_GW/submodels/$SM_E_TIMESERIES")

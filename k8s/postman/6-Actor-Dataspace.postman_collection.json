@@ -311,7 +311,7 @@
                   "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
                   "var j = pm.response.json();",
                   "var raw = JSON.stringify(j);",
-                  "pm.expect(raw).to.include('ServoMotorAAS');",
+                  "pm.expect(raw).to.include('PowerMeterModbusAAS');",
                   "pm.expect(raw).to.include('urn:dataspace:a:aas:servo-motor-001');"
                 ],
                 "type": "text/javascript"
@@ -332,8 +332,8 @@
                 "exec": [
                   "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
                   "var raw = JSON.stringify(pm.response.json());",
-                  "pm.expect(raw).to.include('NominalPowerKW');",
-                  "pm.expect(raw).to.include('IE4');"
+                  "pm.expect(raw).to.include('NominalVoltageV');",
+                  "pm.expect(raw).to.include('Modbus-RTU');"
                 ],
                 "type": "text/javascript"
               }
@@ -353,7 +353,7 @@
                 "exec": [
                   "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
                   "var raw = JSON.stringify(pm.response.json());",
-                  "pm.expect(raw).to.include('IndustrialGearboxAAS');"
+                  "pm.expect(raw).to.include('PowerQualityAnalyzerAAS');"
                 ],
                 "type": "text/javascript"
               }
@@ -373,8 +373,8 @@
                 "exec": [
                   "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
                   "var raw = JSON.stringify(pm.response.json());",
-                  "pm.expect(raw).to.include('GearRatio');",
-                  "pm.expect(raw).to.include('10:1');"
+                  "pm.expect(raw).to.include('HarmonicAnalysisOrder');",
+                  "pm.expect(raw).to.include('63');"
                 ],
                 "type": "text/javascript"
               }
@@ -394,7 +394,7 @@
                 "exec": [
                   "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
                   "var raw = JSON.stringify(pm.response.json());",
-                  "pm.expect(raw).to.include('VibrationSensorAAS');"
+                  "pm.expect(raw).to.include('IoTEnergySensorAAS');"
                 ],
                 "type": "text/javascript"
               }
@@ -414,8 +414,8 @@
                 "exec": [
                   "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
                   "var raw = JSON.stringify(pm.response.json());",
-                  "pm.expect(raw).to.include('SamplingRateKHz');",
-                  "pm.expect(raw).to.include('25.6');"
+                  "pm.expect(raw).to.include('SamplingRateHz');",
+                  "pm.expect(raw).to.include('8000');"
                 ],
                 "type": "text/javascript"
               }
@@ -499,9 +499,9 @@
                 "exec": [
                   "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
                   "var raw = JSON.stringify(pm.response.json());",
-                  "pm.expect(raw).to.include('IntegratedMotorRef');",
-                  "pm.expect(raw).to.include('IntegratedGearboxRef');",
-                  "pm.expect(raw).to.include('IntegratedSensorRef');"
+                  "pm.expect(raw).to.include('IntegratedEnergyMeterRef');",
+                  "pm.expect(raw).to.include('IntegratedPowerQualityMeterRef');",
+                  "pm.expect(raw).to.include('IntegratedIoTEnergySensorRef');"
                 ],
                 "type": "text/javascript"
               }
@@ -571,7 +571,7 @@
                 "exec": [
                   "pm.test('Status is 200 OK', function () { pm.response.to.have.status(200); });",
                   "var raw = JSON.stringify(pm.response.json());",
-                  "pm.expect(raw).to.include('Turbine Blade');"
+                  "pm.expect(raw).to.include('Zahnrad');"
                 ],
                 "type": "text/javascript"
               }

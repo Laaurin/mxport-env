@@ -216,15 +216,15 @@ Log-Step "Phase 1: Public Access to Product Information (Actor A, B, C)"
 
 $rA = Invoke-DataspaceHttp -Uri "$ActorAGw/shells"
 Assert-Status $rA.StatusCode 200 "Public query to Actor A /shells"
-Assert-Contains $rA.Content "ServoMotorAAS" "Actor A returns ServoMotorAAS"
+Assert-Contains $rA.Content "PowerMeterModbusAAS" "Actor A returns PowerMeterModbusAAS"
 
 $rB = Invoke-DataspaceHttp -Uri "$ActorBGw/shells"
 Assert-Status $rB.StatusCode 200 "Public query to Actor B /shells"
-Assert-Contains $rB.Content "IndustrialGearboxAAS" "Actor B returns IndustrialGearboxAAS"
+Assert-Contains $rB.Content "PowerQualityAnalyzerAAS" "Actor B returns PowerQualityAnalyzerAAS"
 
 $rC = Invoke-DataspaceHttp -Uri "$ActorCGw/shells"
 Assert-Status $rC.StatusCode 200 "Public query to Actor C /shells"
-Assert-Contains $rC.Content "VibrationSensorAAS" "Actor C returns VibrationSensorAAS"
+Assert-Contains $rC.Content "IoTEnergySensorAAS" "Actor C returns IoTEnergySensorAAS"
 
 # Keycloak Token Retrieval
 function Get-Token($realm, $clientId, $clientSecret) {
@@ -284,6 +284,7 @@ $SmETimeSeries = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes
 $headersD = @{ Authorization = "Bearer $TokenD" }
 $rENpD = Invoke-DataspaceHttp -Uri "$ActorEGw/submodels/$SmENameplate" -Headers $headersD
 Assert-Status $rENpD.StatusCode 200 "Actor D reads Actor E Nameplate ('andere sehen Nameplate')"
+Assert-Contains $rENpD.Content "Zahnrad" "Actor E Nameplate returns gearwheel (Zahnrad)"
 
 $rETsD = Invoke-DataspaceHttp -Uri "$ActorEGw/submodels/$SmETimeSeries" -Headers $headersD
 if ($rETsD.StatusCode -eq 401 -or $rETsD.StatusCode -eq 403) {

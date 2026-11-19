@@ -1,7 +1,7 @@
 {
   "assetAdministrationShells": [
     {
-      "idShort": "ServoMotorAAS",
+      "idShort": "PowerMeterModbusAAS",
       "id": "urn:dataspace:a:aas:servo-motor-001",
       "assetInformation": {
         "assetKind": "Instance",
@@ -47,19 +47,19 @@
         {
           "idShort": "ManufacturerName",
           "valueType": "xs:string",
-          "value": "MotorTech Antriebssysteme GmbH",
+          "value": "VoltSense Energy Systems GmbH",
           "modelType": "Property"
         },
         {
           "idShort": "ManufacturerProductDesignation",
           "valueType": "xs:string",
-          "value": "HighTorque ServoDrive S7",
+          "value": "Three-Phase DIN-Rail Energy Meter EM-300",
           "modelType": "Property"
         },
         {
           "idShort": "SerialNumber",
           "valueType": "xs:string",
-          "value": "MT-S7-99214",
+          "value": "VS-EM300-99214",
           "modelType": "Property"
         },
         {
@@ -85,27 +85,33 @@
       },
       "submodelElements": [
         {
-          "idShort": "NominalPowerKW",
+          "idShort": "NominalVoltageV",
           "valueType": "xs:double",
-          "value": "15.0",
+          "value": "400.0",
           "modelType": "Property"
         },
         {
-          "idShort": "MaxTorqueNm",
+          "idShort": "MaxCurrentA",
           "valueType": "xs:double",
-          "value": "75.0",
+          "value": "63.0",
           "modelType": "Property"
         },
         {
-          "idShort": "RatedSpeedRPM",
+          "idShort": "SamplingRateHz",
           "valueType": "xs:integer",
-          "value": "3000",
+          "value": "50",
           "modelType": "Property"
         },
         {
-          "idShort": "EfficiencyClass",
+          "idShort": "AccuracyClass",
           "valueType": "xs:string",
-          "value": "IE4",
+          "value": "0.5S",
+          "modelType": "Property"
+        },
+        {
+          "idShort": "Interface",
+          "valueType": "xs:string",
+          "value": "Modbus-RTU",
           "modelType": "Property"
         }
       ],

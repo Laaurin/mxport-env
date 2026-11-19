@@ -153,12 +153,12 @@ Im Datenraum agieren 6 Akteure entlang einer industriellen Liefer- und Fertigung
 
 | Akteur | Rolle & Kontext | Standard-AAS & Teilmodelle | Zugriffssteuerung & Rollen |
 |---|---|---|---|
-| **Actor A** | Servomotor-Zulieferer | `ServoMotorAAS` (`urn:dataspace:a:aas:servo-motor-001`)<br>- `Nameplate`<br>- `TechnicalData` (15 kW, IE4) | **Öffentlich** (kein Token erforderlich) |
-| **Actor B** | Getriebe-Zulieferer | `IndustrialGearboxAAS` (`urn:dataspace:b:aas:gearbox-001`)<br>- `Nameplate`<br>- `TechnicalData` (10:1, 450 Nm) | **Öffentlich** (kein Token erforderlich) |
-| **Actor C** | Sensor-Zulieferer | `VibrationSensorAAS` (`urn:dataspace:c:aas:sensor-001`)<br>- `Nameplate`<br>- `TechnicalData` (25.6 kHz, IO-Link) | **Öffentlich** (kein Token erforderlich) |
-| **Actor D** | Maschinenbauer (OEM) | `MillingMachineTypeAAS` (`urn:dataspace:d:aas:machine-type-001`)<br>- `Nameplate`<br>- `TechnicalData` (Referenzen auf A, B, C)<br>- `SimulationModel` | **Keycloak + STS + BaSyx Security SM**<br>- Eigene Rolle: `partner-d`<br>- `SimulationModel` erfordert `customer-d` |
-| **Actor E** | Bauteilfertiger (Kunde von D) | `TurbineBladeProductAAS` (`urn:dataspace:e:aas:produced-part-001`)<br>- `Nameplate` (Referenz auf Maschine D)<br>- `TimeSeries` (Prozessdaten) | **Keycloak + STS + BaSyx Security SM**<br>- Eigene Rollen: `customer-d`, `partner-e`<br>- `Nameplate`: lesbar für Partner (`partner-d`, `customer-e`)<br>- `TimeSeries`: erfordert `customer-e` |
-| **Actor F** | Endkunde (Kunde von E) | `CustomerAeroEngineOEM` (`urn:dataspace:f:aas:customer-profile-001`)<br>- `Nameplate` (Kaufreferenz auf Bauteil E) | **Keycloak-Identität**<br>- Eigene Rollen: `customer-e`, `partner-f`<br>- Erhält Vollzugriff auf `TimeSeries` von E |
+| **Actor A** | Energiemessgeräte-Zulieferer 1 | `PowerMeterModbusAAS` (`urn:dataspace:a:aas:servo-motor-001`)<br>- `Nameplate`<br>- `TechnicalData` (400V, 63A, Modbus-RTU) | **Öffentlich** (kein Token erforderlich) |
+| **Actor B** | Energiemessgeräte-Zulieferer 2 | `PowerQualityAnalyzerAAS` (`urn:dataspace:b:aas:gearbox-001`)<br>- `Nameplate`<br>- `TechnicalData` (690V, 125A, Class 0.2S) | **Öffentlich** (kein Token erforderlich) |
+| **Actor C** | Energiemessgeräte-Zulieferer 3 | `IoTEnergySensorAAS` (`urn:dataspace:c:aas:sensor-001`)<br>- `Nameplate`<br>- `TechnicalData` (400V, 500A Rogowski, MQTT) | **Öffentlich** (kein Token erforderlich) |
+| **Actor D** | Maschinenbauer (OEM) | `MillingMachineTypeAAS` (`urn:dataspace:d:aas:machine-type-001`)<br>- `Nameplate`<br>- `TechnicalData` (Referenzen auf Energiemessgeräte A, B, C)<br>- `SimulationModel` | **Keycloak + STS + BaSyx Security SM**<br>- Eigene Rolle: `partner-d`<br>- `SimulationModel` erfordert `customer-d` |
+| **Actor E** | Bauteilfertiger (Kunde von D) | `PrecisionGearProductAAS` (`urn:dataspace:e:aas:produced-part-001`)<br>- `Nameplate` (Zahnrad, gefräst auf Maschine D)<br>- `TimeSeries` (Prozessdaten der Fertigung) | **Keycloak + STS + BaSyx Security SM**<br>- Eigene Rollen: `customer-d`, `partner-e`<br>- `Nameplate`: lesbar für Partner (`partner-d`, `customer-e`)<br>- `TimeSeries`: erfordert `customer-e` |
+| **Actor F** | Endkunde (Kunde von E) | `CustomerDriveSystemsOEM` (`urn:dataspace:f:aas:customer-profile-001`)<br>- `Nameplate` (Kaufreferenz auf Zahnrad von E) | **Keycloak-Identität**<br>- Eigene Rollen: `customer-e`, `partner-f`<br>- Erhält Vollzugriff auf `TimeSeries` von E |
 
 ---
 
