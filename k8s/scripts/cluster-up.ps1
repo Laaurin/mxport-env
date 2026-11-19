@@ -58,7 +58,7 @@ $gwInspect = docker image inspect mxport-leo-gateway:local 2>$null
 if ($LASTEXITCODE -ne 0) {
     $ErrorActionPreference = "Stop"
     Write-Host "  --> Building mxport-leo-gateway:local..." -ForegroundColor Gray
-    docker build -t mxport-leo-gateway:local -f "$RootDir\provider\gateway\Dockerfile" "$RootDir\provider\gateway"
+    docker build --provenance=false -t mxport-leo-gateway:local -f "$RootDir\provider\gateway\Dockerfile" "$RootDir\provider\gateway"
 }
 
 $ErrorActionPreference = "Continue"
@@ -66,7 +66,7 @@ $stsInspect = docker image inspect mxport-leo-sts:local 2>$null
 if ($LASTEXITCODE -ne 0) {
     $ErrorActionPreference = "Stop"
     Write-Host "  --> Building mxport-leo-sts:local..." -ForegroundColor Gray
-    docker build -t mxport-leo-sts:local "$RootDir\repos\mxport-leo-token-exchange"
+    docker build --provenance=false -t mxport-leo-sts:local "$RootDir\repos\mxport-leo-token-exchange"
 }
 
 $ErrorActionPreference = "Continue"
@@ -74,35 +74,23 @@ $lookupInspect = docker image inspect mxport-leo-company-lookup:local 2>$null
 if ($LASTEXITCODE -ne 0) {
     $ErrorActionPreference = "Stop"
     Write-Host "  --> Building mxport-leo-company-lookup:local..." -ForegroundColor Gray
-    docker build -t mxport-leo-company-lookup:local "$RootDir\repos\mxport-leo-company-lookup"
+    docker build --provenance=false -t mxport-leo-company-lookup:local "$RootDir\repos\mxport-leo-company-lookup"
 }
 
-$ErrorActionPreference = "Continue"
-$pgInspect = docker image inspect postgres:16-alpine 2>$null
-if ($LASTEXITCODE -ne 0) {
-    $ErrorActionPreference = "Stop"
-    Write-Host "  --> Pulling postgres:16-alpine..." -ForegroundColor Gray
-    docker pull postgres:16-alpine
-}
-
-Write-Host ">>> Importing images into k3d cluster '$ClusterName'..." -ForegroundColor Cyan
-$images = @(
-  "mxport-leo-gateway:local",
-  "mxport-leo-sts:local",
-  "mxport-leo-company-lookup:local",
-  "postgres:16-alpine",
-  "eclipsebasyx/aas-environment:2.0.0-SNAPSHOT",
-  "eclipsebasyx/submodel-repository:2.0.0-SNAPSHOT",
-  "eclipsebasyx/aas-gui:SNAPSHOT",
-  "quay.io/keycloak/keycloak:25.0",
-  "mongo:8",
-  "curlimages/curl:8.5.0"
+Write-Host ">>> Importing local custom images into k3d cluster '$ClusterName'..." -ForegroundColor Cyan
+$localBuilds = @(
+  @{ Image = "mxport-leo-gateway:local";        Args = @("--provenance=false", "-t", "mxport-leo-gateway:local", "-f", "$RootDir\provider\gateway\Dockerfile", "$RootDir\provider\gateway") },
+  @{ Image = "mxport-leo-sts:local";            Args = @("--provenance=false", "-t", "mxport-leo-sts:local", "$RootDir\repos\mxport-leo-token-exchange") },
+  @{ Image = "mxport-leo-company-lookup:local"; Args = @("--provenance=false", "-t", "mxport-leo-company-lookup:local", "$RootDir\repos\mxport-leo-company-lookup") }
 )
-foreach ($img in $images) {
+foreach ($entry in $localBuilds) {
+    $img = $entry.Image
     $ErrorActionPreference = "Continue"
-    $null = docker image inspect $img 2>$null
-    if ($LASTEXITCODE -eq 0) {
-        $ErrorActionPreference = "Stop"
+    k3d image import $img -c $ClusterName
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  --> Rebuilding $img without multi-arch provenance digest for k3d import..." -ForegroundColor Yellow
+        docker rmi -f $img 2>$null
+        & docker build @($entry.Args)
         k3d image import $img -c $ClusterName
     }
 }

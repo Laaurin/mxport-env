@@ -50,7 +50,6 @@ k3d cluster create --config k8s/cluster/k3d-config.yaml
 k3d image import mxport-leo-gateway:local -c dataspace
 k3d image import mxport-leo-sts:local -c dataspace
 k3d image import mxport-leo-company-lookup:local -c dataspace
-k3d image import postgres:16-alpine -c dataspace
 
 # 3. Alle Helm-Charts über deploy-all ausrollen (oder die Einzelbefehle aus Abschnitt 3 nutzen)
 .\k8s\scripts\deploy-all.ps1
@@ -97,15 +96,14 @@ git -C repos/mxport-leo-company-lookup checkout a9937d1f5d016927722e7de1432a2a7e
 ```
 
 ### Schritt 2: Lokale Docker-Images bauen
-*(Nur nötig, falls die Images noch nicht lokal in Docker existieren)*
+*(Nur nötig, falls die Images noch nicht lokal in Docker existieren. `--provenance=false` verhindert unter Windows Docker Desktop den `content digest sha256 not found`-Fehler beim Import in `k3d`.)*
 ```powershell
-docker build -t mxport-leo-gateway:local -f provider/gateway/Dockerfile provider/gateway
-docker build -t mxport-leo-sts:local repos/mxport-leo-token-exchange
-docker build -t mxport-leo-company-lookup:local repos/mxport-leo-company-lookup
-docker pull postgres:16-alpine
+docker build --provenance=false -t mxport-leo-gateway:local -f provider/gateway/Dockerfile provider/gateway
+docker build --provenance=false -t mxport-leo-sts:local repos/mxport-leo-token-exchange
+docker build --provenance=false -t mxport-leo-company-lookup:local repos/mxport-leo-company-lookup
 ```
 
-### Schritt 3: `k3d`-Cluster erstellen & Images importieren
+### Schritt 3: `k3d`-Cluster erstellen & lokale Images importieren
 ```powershell
 k3d cluster delete dataspace
 k3d cluster create --config k8s/cluster/k3d-config.yaml
@@ -113,7 +111,6 @@ k3d cluster create --config k8s/cluster/k3d-config.yaml
 k3d image import mxport-leo-gateway:local -c dataspace
 k3d image import mxport-leo-sts:local -c dataspace
 k3d image import mxport-leo-company-lookup:local -c dataspace
-k3d image import postgres:16-alpine -c dataspace
 ```
 
 ### Schritt 4: Alles ausrollen (Entspricht `deploy-all.ps1` / `deploy-all.sh`)

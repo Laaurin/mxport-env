@@ -54,23 +54,11 @@ if ! docker image inspect mxport-leo-company-lookup:local >/dev/null 2>&1; then
   docker build -t mxport-leo-company-lookup:local "$ROOT_DIR/repos/mxport-leo-company-lookup"
 fi
 
-if ! docker image inspect postgres:16-alpine >/dev/null 2>&1; then
-  echo "  --> Pulling postgres:16-alpine..."
-  docker pull postgres:16-alpine
-fi
-
-echo ">>> Importing images into k3d cluster (avoids re-pulling)..."
+echo ">>> Importing local custom images into k3d cluster..."
 for img in \
   mxport-leo-gateway:local \
   mxport-leo-sts:local \
-  mxport-leo-company-lookup:local \
-  postgres:16-alpine \
-  eclipsebasyx/aas-environment:2.0.0-SNAPSHOT \
-  eclipsebasyx/submodel-repository:2.0.0-SNAPSHOT \
-  eclipsebasyx/aas-gui:SNAPSHOT \
-  quay.io/keycloak/keycloak:25.0 \
-  mongo:8 \
-  curlimages/curl:8.5.0; do
+  mxport-leo-company-lookup:local; do
   if docker image inspect "$img" >/dev/null 2>&1; then
     k3d image import "$img" -c "$CLUSTER_NAME" || true
   fi

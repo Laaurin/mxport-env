@@ -946,6 +946,14 @@ export async function resolveAndFetchUrn(
       resolvedAasUrl = `${baseAasUrl}/${toBase64(parsedData.result[0].id)}`;
     }
 
+    // Automatically sync customized idShort names into the resource dropdown
+    if (parsedData && typeof parsedData === 'object' && parsedData.id && parsedData.idShort) {
+      const catalogEntry = DATASPACE_RESOURCES.find((r) => r.urn === parsedData.id);
+      if (catalogEntry) {
+        catalogEntry.label = `${parsedData.idShort} (${catalogEntry.kind})`;
+      }
+    }
+
     const headerSourceToken = resHeaders['x-dataspace-source-token'] || callerTokenRaw;
     const headerExchangedToken = resHeaders['x-dataspace-exchanged-token'] || null;
 
