@@ -21,10 +21,10 @@ echo ">>> 1. Deploying/Upgrading shared infrastructure (Keycloak + MongoDB + Com
 helm upgrade --install infra "$K8S_DIR/helm/dataspace-infra" -n "$NAMESPACE"
 
 echo ">>> Waiting for Keycloak, MongoDB & Company Lookup to become ready..."
-kubectl wait --namespace "$NAMESPACE" --for=condition=ready pod -l app=keycloak --timeout=180s || true
-kubectl wait --namespace "$NAMESPACE" --for=condition=ready pod -l app=mongodb --timeout=120s || true
-kubectl wait --namespace "$NAMESPACE" --for=condition=ready pod -l app=company-lookup-db --timeout=120s || true
-kubectl wait --namespace "$NAMESPACE" --for=condition=ready pod -l app=company-lookup --timeout=120s || true
+kubectl rollout status deployment/keycloak -n "$NAMESPACE" --timeout=240s || true
+kubectl rollout status deployment/mongodb -n "$NAMESPACE" --timeout=180s || true
+kubectl rollout status deployment/company-lookup-db -n "$NAMESPACE" --timeout=180s || true
+kubectl rollout status deployment/company-lookup -n "$NAMESPACE" --timeout=180s || true
 
 ACTORS=("actor-a" "actor-b" "actor-c" "actor-d" "actor-e" "actor-f")
 
@@ -38,17 +38,17 @@ done
 
 echo ">>> Waiting for Gateways to become ready..."
 for actor in "${ACTORS[@]}"; do
-  kubectl wait --namespace "$NAMESPACE" --for=condition=ready pod -l "app=$actor-gateway" --timeout=120s || true
+  kubectl rollout status "deployment/$actor-gateway" -n "$NAMESPACE" --timeout=180s || true
 done
 
 echo ">>> Waiting for AAS Environments to become ready..."
 for actor in "${ACTORS[@]}"; do
-  kubectl wait --namespace "$NAMESPACE" --for=condition=ready pod -l "app=$actor-aas" --timeout=180s || true
+  kubectl rollout status "deployment/$actor-aas" -n "$NAMESPACE" --timeout=300s || true
 done
 
 echo ">>> Waiting for Actor AAS Viewers to become ready..."
 for actor in "${ACTORS[@]}"; do
-  kubectl wait --namespace "$NAMESPACE" --for=condition=ready pod -l "app=$actor-gui" --timeout=120s || true
+  kubectl rollout status "deployment/$actor-gui" -n "$NAMESPACE" --timeout=180s || true
 done
 
 echo "======================================================================"

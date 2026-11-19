@@ -31,10 +31,10 @@ Write-Host ">>> 1. Deploying/Upgrading Shared Infrastructure (Keycloak + MongoDB
 helm upgrade --install infra "$K8sDir\helm\dataspace-infra" -n $Namespace
 
 Write-Host ">>> Waiting for Keycloak, MongoDB & Company Lookup to become ready..." -ForegroundColor Yellow
-kubectl wait --namespace $Namespace --for=condition=ready pod -l app=keycloak --timeout=180s
-kubectl wait --namespace $Namespace --for=condition=ready pod -l app=mongodb --timeout=120s
-kubectl wait --namespace $Namespace --for=condition=ready pod -l app=company-lookup-db --timeout=120s
-kubectl wait --namespace $Namespace --for=condition=ready pod -l app=company-lookup --timeout=120s
+kubectl rollout status deployment/keycloak -n $Namespace --timeout=240s
+kubectl rollout status deployment/mongodb -n $Namespace --timeout=180s
+kubectl rollout status deployment/company-lookup-db -n $Namespace --timeout=180s
+kubectl rollout status deployment/company-lookup -n $Namespace --timeout=180s
 
 Write-Host ">>> 2. Deploying/Upgrading 6 Dataspace Actors..." -ForegroundColor Cyan
 $actors = @("actor-a", "actor-b", "actor-c", "actor-d", "actor-e", "actor-f")
@@ -47,17 +47,17 @@ foreach ($actor in $actors) {
 
 Write-Host ">>> Waiting for Gateways..." -ForegroundColor Yellow
 foreach ($actor in $actors) {
-    kubectl wait --namespace $Namespace --for=condition=ready pod -l "app=$actor-gateway" --timeout=120s
+    kubectl rollout status "deployment/$actor-gateway" -n $Namespace --timeout=180s
 }
 
 Write-Host ">>> Waiting for AAS Environments..." -ForegroundColor Yellow
 foreach ($actor in $actors) {
-    kubectl wait --namespace $Namespace --for=condition=ready pod -l "app=$actor-aas" --timeout=180s
+    kubectl rollout status "deployment/$actor-aas" -n $Namespace --timeout=300s
 }
 
 Write-Host ">>> Waiting for Actor AAS Viewers..." -ForegroundColor Yellow
 foreach ($actor in $actors) {
-    kubectl wait --namespace $Namespace --for=condition=ready pod -l "app=$actor-gui" --timeout=120s
+    kubectl rollout status "deployment/$actor-gui" -n $Namespace --timeout=180s
 }
 
 Write-Host "======================================================================" -ForegroundColor Green
