@@ -215,16 +215,31 @@ Check-Health "$ActorFGw/healthz" "Actor F Gateway"
 Log-Step "Phase 1: Public Access to Product Information (Actor A, B, C)"
 
 $rA = Invoke-DataspaceHttp -Uri "$ActorAGw/shells"
-Assert-Status $rA.StatusCode 200 "Public query to Actor A /shells"
+Assert-Status $rA.StatusCode 200 "Public query to Actor A /shells (no token required)"
 Assert-Contains $rA.Content "PowerMeterModbusAAS" "Actor A returns PowerMeterModbusAAS"
 
+$SmATech = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("urn:dataspace:a:sm:technical-data"))
+$rATech = Invoke-DataspaceHttp -Uri "$ActorAGw/submodels/$SmATech"
+Assert-Status $rATech.StatusCode 200 "Public query to Actor A TechnicalData submodel"
+Assert-Contains $rATech.Content "NominalVoltageV" "Actor A returns energy meter technical data"
+
 $rB = Invoke-DataspaceHttp -Uri "$ActorBGw/shells"
-Assert-Status $rB.StatusCode 200 "Public query to Actor B /shells"
+Assert-Status $rB.StatusCode 200 "Public query to Actor B /shells (no token required)"
 Assert-Contains $rB.Content "PowerQualityAnalyzerAAS" "Actor B returns PowerQualityAnalyzerAAS"
 
+$SmBTech = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("urn:dataspace:b:sm:technical-data"))
+$rBTech = Invoke-DataspaceHttp -Uri "$ActorBGw/submodels/$SmBTech"
+Assert-Status $rBTech.StatusCode 200 "Public query to Actor B TechnicalData submodel"
+Assert-Contains $rBTech.Content "HarmonicAnalysisOrder" "Actor B returns power quality analyzer technical data"
+
 $rC = Invoke-DataspaceHttp -Uri "$ActorCGw/shells"
-Assert-Status $rC.StatusCode 200 "Public query to Actor C /shells"
+Assert-Status $rC.StatusCode 200 "Public query to Actor C /shells (no token required)"
 Assert-Contains $rC.Content "IoTEnergySensorAAS" "Actor C returns IoTEnergySensorAAS"
+
+$SmCTech = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("urn:dataspace:c:sm:technical-data"))
+$rCTech = Invoke-DataspaceHttp -Uri "$ActorCGw/submodels/$SmCTech"
+Assert-Status $rCTech.StatusCode 200 "Public query to Actor C TechnicalData submodel"
+Assert-Contains $rCTech.Content "SamplingRateHz" "Actor C returns IoT energy sensor technical data"
 
 # Keycloak Token Retrieval
 function Get-Token($realm, $clientId, $clientSecret) {
@@ -242,10 +257,6 @@ function Get-Token($realm, $clientId, $clientSecret) {
     return $null
 }
 
-$TokenE = Get-Token "actor-e" "actor-e-client" "actor-e-secret-12345"
-$TokenF = Get-Token "actor-f" "actor-f-client" "actor-f-secret-12345"
-$TokenD = Get-Token "actor-d" "actor-d-client" "actor-d-secret-12345"
-
 # Phase 2: Security Validation on Actor D
 Log-Step "Phase 2: Security Validation on Actor D (Simulation SM Protection)"
 
@@ -253,6 +264,26 @@ $SmDSim = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("urn:d
 
 $unauthD = Invoke-DataspaceHttp -Uri "$ActorDGw/submodels/$SmDSim"
 Assert-Status $unauthD.StatusCode 401 "Unauthenticated request to Actor D Simulation SM rejected (HTTP 401)"
+
+$TokenE = Get-Token "actor-e" "actor-e-client" "actor-e-secret-12345"
+$TokenF = Get-Token "actor-f" "actor-f-client" "actor-f-secret-12345"
+$TokenD = Get-Token "actor-d" "actor-d-client" "actor-d-secret-12345"
+
+if (-not [string]::IsNullOrEmpty($TokenE)) {
+    Write-Host "  [PASS] Obtained Actor E token (role: customer-d)" -ForegroundColor Green
+    $script:PassedTests++
+} else {
+    Write-Host "  [FAIL] Failed to obtain token for Actor E" -ForegroundColor Red
+    $script:FailedTests++
+}
+
+if (-not [string]::IsNullOrEmpty($TokenF)) {
+    Write-Host "  [PASS] Obtained Actor F token (role: customer-e)" -ForegroundColor Green
+    $script:PassedTests++
+} else {
+    Write-Host "  [FAIL] Failed to obtain token for Actor F" -ForegroundColor Red
+    $script:FailedTests++
+}
 
 $nonCustF = Invoke-DataspaceHttp -Uri "$ActorDGw/submodels/$SmDSim" -Headers @{ Authorization = "Bearer $TokenF" }
 if ($nonCustF.StatusCode -eq 401 -or $nonCustF.StatusCode -eq 403) {
@@ -264,19 +295,27 @@ if ($nonCustF.StatusCode -eq 401 -or $nonCustF.StatusCode -eq 403) {
 }
 
 # Phase 3: Customer E queries Actor D (Simulation SM)
-Log-Step "Phase 3: Customer E queries Actor D (MachineTypeAAS & Simulation)"
+Log-Step "Phase 3: Authorized Customer E queries Actor D (MachineTypeAAS & Simulation)"
 
 $headersE = @{ Authorization = "Bearer $TokenE" }
 $rDShells = Invoke-DataspaceHttp -Uri "$ActorDGw/shells" -Headers $headersE
 Assert-Status $rDShells.StatusCode 200 "Customer E queries Actor D /shells"
 Assert-Contains $rDShells.Content "MillingMachineTypeAAS" "Actor D returns MillingMachineTypeAAS"
 
+$SmDTech = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("urn:dataspace:d:sm:technical-data"))
+$rDTech = Invoke-DataspaceHttp -Uri "$ActorDGw/submodels/$SmDTech" -Headers $headersE
+Assert-Status $rDTech.StatusCode 200 "Customer E queries Actor D TechnicalData"
+Assert-Contains $rDTech.Content "IntegratedEnergyMeterRef" "Actor D references Actor A Energy Meter"
+Assert-Contains $rDTech.Content "IntegratedPowerQualityMeterRef" "Actor D references Actor B Power Quality Analyzer"
+Assert-Contains $rDTech.Content "IntegratedIoTEnergySensorRef" "Actor D references Actor C IoT Energy Sensor"
+
 $rDSim = Invoke-DataspaceHttp -Uri "$ActorDGw/submodels/$SmDSim" -Headers $headersE
 Assert-Status $rDSim.StatusCode 200 "Customer E receives Simulation Submodel from Actor D"
 Assert-Contains $rDSim.Content "KinematicAndThermalFEA" "Simulation model contains FEA parameters"
+Assert-Contains $rDSim.Content "ToolCenterPointPrecisionMicron" "Simulation model contains precision metrics"
 
 # Phase 4: Access Control on Actor E: Nameplate vs TimeSeries
-Log-Step "Phase 4: Access Control on Actor E: Nameplate vs TimeSeries"
+Log-Step "Phase 4: Access Control on Actor E: Public Nameplate vs Protected TimeSeries"
 
 $SmENameplate  = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("urn:dataspace:e:sm:nameplate"))
 $SmETimeSeries = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("urn:dataspace:e:sm:timeseries"))
@@ -296,13 +335,23 @@ if ($rETsD.StatusCode -eq 401 -or $rETsD.StatusCode -eq 403) {
 }
 
 # Phase 5: Customer F queries Actor E TimeSeries Submodel
-Log-Step "Phase 5: Customer F queries Actor E TimeSeries Submodel"
+Log-Step "Phase 5: Customer F queries Actor E TimeSeries Submodel (Authorized!)"
 
 $headersF = @{ Authorization = "Bearer $TokenF" }
 $rETsF = Invoke-DataspaceHttp -Uri "$ActorEGw/submodels/$SmETimeSeries" -Headers $headersF
 Assert-Status $rETsF.StatusCode 200 "Customer F receives TimeSeries Submodel from Actor E"
-Assert-Contains $rETsF.Content "ProcessRecordCount" "TimeSeries contains process record count"
+Assert-Contains $rETsF.Content "ProcessRecordCount" "TimeSeries contains process data record count"
 Assert-Contains $rETsF.Content "AverageMillingTemperatureCelsius" "TimeSeries contains milling temperature"
+Assert-Contains $rETsF.Content "PeakVibrationRMS" "TimeSeries contains vibration RMS"
+
+$rENpF = Invoke-DataspaceHttp -Uri "$ActorEGw/submodels/$SmENameplate" -Headers $headersF
+Assert-Status $rENpF.StatusCode 200 "Customer F can also read Nameplate"
+
+# Phase 6: Unauthenticated request to Actor E TimeSeries
+Log-Step "Phase 6: Unauthenticated request to Actor E TimeSeries"
+
+$unauthE = Invoke-DataspaceHttp -Uri "$ActorEGw/submodels/$SmETimeSeries"
+Assert-Status $unauthE.StatusCode 401 "Unauthenticated request to Actor E TimeSeries is rejected with HTTP 401"
 
 Log-Header "Verification Summary"
 Write-Host "Total Tests Passed: $PassedTests" -ForegroundColor Green

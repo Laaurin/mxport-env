@@ -50,6 +50,10 @@ foreach ($actor in $actors) {
     kubectl rollout status "deployment/$actor-gateway" -n $Namespace --timeout=180s
 }
 
+Write-Host ">>> Waiting for Security Submodels (actor-d-secsm, actor-e-secsm)..." -ForegroundColor Yellow
+kubectl rollout status "deployment/actor-d-secsm" -n $Namespace --timeout=300s
+kubectl rollout status "deployment/actor-e-secsm" -n $Namespace --timeout=300s
+
 Write-Host ">>> Waiting for AAS Environments..." -ForegroundColor Yellow
 foreach ($actor in $actors) {
     kubectl rollout status "deployment/$actor-aas" -n $Namespace --timeout=300s

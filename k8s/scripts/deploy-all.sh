@@ -41,6 +41,10 @@ for actor in "${ACTORS[@]}"; do
   kubectl rollout status "deployment/$actor-gateway" -n "$NAMESPACE" --timeout=180s || true
 done
 
+echo ">>> Waiting for Security Submodels (actor-d-secsm, actor-e-secsm)..."
+kubectl rollout status "deployment/actor-d-secsm" -n "$NAMESPACE" --timeout=300s || true
+kubectl rollout status "deployment/actor-e-secsm" -n "$NAMESPACE" --timeout=300s || true
+
 echo ">>> Waiting for AAS Environments to become ready..."
 for actor in "${ACTORS[@]}"; do
   kubectl rollout status "deployment/$actor-aas" -n "$NAMESPACE" --timeout=300s || true
